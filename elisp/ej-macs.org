@@ -1,0 +1,2737 @@
+#+TITLE: evjavacs
+#+AUTHOR: Eugene Vagin
+#+STARTUP: showall
+#+LATEX_HEADER: \usepackage[english,russian]{babel}
+
+- NAV ::
+  - [[../init.el]]
+  - [[../custom.el]]
+  - [[https://github.com/jwiegley/use-package][github: use-package]]
+  - this file: [[calculator]], [[links-navigation]], [[time-inserter]], [[org-add-line-item]]
+- Remember ::
+  - =C-x z= - run last command
+  - =C-c '= - org-edit-src-code
+  - reconnecting: (reconnect)
+  - shell: "M-x dirs": <M-RET>
+* Early config
+** Basic modules
+#+begin_src emacs-lisp
+(use-package cl-lib)
+(use-package s)
+(use-package quick-yes :load-path "non-elpa")
+#+end_src
+** Some variables
+#+begin_src emacs-lisp
+(defvar mc--read-char nil)
+(defvar mc--read-quoted-char nil)
+(defvar rectangular-region-mode nil)
+(defvar regexp-string nil)
+(defvar replace-string nil)
+(put 'narrow-to-page 'disabled nil)
+(setq-default auto-save-defaults t)
+
+;; todo put all disablings in one place
+(put 'downcase-region 'disabled nil)
+(put 'upcase-region 'disabled nil)
+(put 'narrow-to-region 'disabled nil)
+
+(setq frame-title-format '((:eval (concat 
+                (if (buffer-file-name)
+                    (abbreviate-file-name (buffer-file-name))
+                  "%b")
+                " - Emacs! "
+                user-login-name "@" (system-name)))))
+
+(defconst debian-emacs-flavor 'emacs26
+  "A symbol representing the particular debian flavor of emacs running.
+ Something like 'emacs20, 'xemacs20, etc.")
+
+(add-to-list 'comint-output-filter-functions 'ansi-color-process-output)
+
+;; old emacs behavior
+(add-to-list 'display-buffer-alist '("^\\*shell\\*.*$" . (display-buffer-same-window)))
+
+;;;; behavior
+;; remove the prompt for killing emacsclient buffers
+(defalias 'yes-or-no-p 'y-or-n-p) ; ask emacs be laconic and brief
+(remove-hook 'kill-buffer-query-functions 'server-kill-buffer-query-function)
+(add-hook 'comint-output-filter-functions 'comint-watch-for-password-prompt)
+#+end_src
+** Functions: base
+#+begin_src emacs-lisp
+(defun load-ignore-error (file)
+  (condition-case nil (load file) (error nil)))
+
+(defun load-org-ignore-error (org-file)
+  (condition-case nil (org-babel-load-file org-file) (error nil)))
+
+(defun make-directory-ignore-error (dir)
+  (condition-case nil (make-directory dir) (error nil)))
+
+(defun get-string-from-file (filePath)
+  "Return filePath's file content."
+  (with-temp-buffer
+    (insert-file-contents filePath)
+    (buffer-string)))
+
+(defun ej/write-string-to-file (string file)
+  (interactive "sEnter the string: \nFFile to save to: ")
+  (with-temp-file file
+    (insert string)))
+
+(defun launch-separate-emacs-in-terminal ()
+  (suspend-emacs "fg ; emacs -nw"))
+(defun launch-separate-emacs-under-x ()
+  (call-process "sh" nil nil nil "-c" "emacs &"))
+
+(defun ej/file-exists-p (file)
+  (and (not (null file)) (file-exists-p file)))
+
+(defun ej/restart-emacs ()
+  (interactive)
+  (if (yes-or-no-p "Restart emacs?")
+      (let ((kill-emacs-hook (append 
+                              kill-emacs-hook 
+                              (list (if (display-graphic-p)
+                                        #'launch-separate-emacs-under-x
+                                      #'launch-separate-emacs-in-terminal)))))
+        (save-buffers-kill-emacs))))
+(global-set-key (kbd "C-c C-M-r") 'ej/restart-emacs)
+#+end_src
+** Paths
+*** Base
+#+begin_src emacs-lisp
+(defun ej/user-dir (dir)
+  (let ((cmd (concat "xdg-user-dir " dir)))
+    (s-trim (shell-command-to-string cmd))))
+(setq downloads-dir (ej/user-dir "DOWNLOAD"))
+(setq music-dir (ej/user-dir "MUSIC"))
+
+(setq org-html-export-css-file (ej/emacs-path "resources/style.css"))
+(setq this-conf-file (ej/emacs-path "elisp/ej-macs.org"))
+(setq init-conf-file (ej/emacs-path "init.el"))
+(setq cstm-conf-file (ej/emacs-path "custom.el"))
+(defun ej/config-opener (&optional arg)
+  (interactive "p")
+  (let* ((f (cond ((eq arg 4)  init-conf-file)
+                  ((eq arg 16) priv-conf-file)
+                  ((eq arg 64) cstm-conf-file)
+                  (t           this-conf-file))))
+    (find-file f)))
+(global-set-key (kbd "<S-f3>") 'ej/config-opener)
+#+end_src
+*** Emacs local paths
+#+begin_src emacs-lisp
+(setq emacs-local-dir (ej/emacs-path ".local"))
+(unless (file-exists-p emacs-local-dir)
+  (make-directory emacs-local-dir))
+(defun ej/emacs-local-path (name) 
+  (expand-file-name name emacs-local-dir))
+
+(setq last-theme-file (ej/emacs-local-path "last-theme.cfg"))
+(setq desktop-file (ej/emacs-local-path "desktop"))
+(setq emms-dir (ej/emacs-local-path "emms"))
+(setq projectile-cache-file (ej/emacs-local-path "projectile.cache"))
+(setq bookmark-default-file (ej/emacs-local-path "emacs_bookmarks"))
+(setq recentf-save-file (ej/emacs-local-path "recentf"))
+(setq org-latex-preview-dir (ej/emacs-local-path "ltximg"))
+#+end_src
+*** External paths
+#+begin_src emacs-lisp
+(defvar bibliography-dir nil  "bibliography for org-ref")
+(defvar python-dir "/usr/bin/python3" "python dir path")
+(defvar telega-path nil "telega path")
+(defvar org-roam-dir nil "Org Roam directory")
+(defvar priv-conf-file nil "Private config path")
+(defvar nav-nav-dir nil "nav-nav path")
+(defvar nav-items-file nil "path to nav-nav-file")
+(defvar latex-headers-file nil "latex headers file for completions")
+
+(load-ignore-error "~/.emacs.d.private/private-paths.el")
+#+end_src
+** UI
+#+begin_src emacs-lisp
+(global-whitespace-mode -1)
+(global-hl-line-mode -1) ;; highlight: подсветка строки с курсором, (hl-line-mode 1)
+(transient-mark-mode -1) ; отключение выделение текста между меткой и точкой
+(add-to-list 'default-frame-alist '(fullscreen . maximized))
+
+;; font
+(set-face-attribute 'default nil :font (font-spec :family "Monospace" :size 18))
+#+end_src
+** Server
+#+begin_src emacs-lisp
+(server-start)
+(defun ej/reconnect()
+  (interactive)
+  (server-force-delete)
+  (server-start))
+#+end_src
+** Base shortcuts
+#+begin_src emacs-lisp
+(global-set-key (kbd "<f2>") 'save-buffer)
+(global-set-key (kbd "<f1><f2>") 'save-buffer)
+(global-set-key (kbd "<f3>") 'find-file)
+(global-set-key (kbd "<ESC><f3>") 'sudo-edit)
+(global-set-key (kbd "C-x b") 'ido-switch-buffer)
+(global-set-key (kbd "<f5>") 'calc-grab-region)
+(global-set-key (kbd "<f6>") 'package-install)
+(global-set-key (kbd "<C-f6>") 'list-packages)
+(global-set-key (kbd "<f8>") 'kill-this-buffer)
+(global-set-key (kbd "<f9>") 'sort-lines)
+(global-set-key (kbd "<f10>") 'open-in-external-app)
+(global-set-key (kbd "<f12>") 'ej/punto)
+(global-set-key (kbd "M-j") 'dabbrev-expand)
+
+(global-set-key (kbd "<C-kp-5>") 'replace-string)
+(global-set-key (kbd "<ESC><C-kp-5>") 'query-replace)
+(global-set-key (kbd "<C-kp-6>") 'replace-regexp)
+(global-set-key (kbd "<ESC><C-kp-6>") 'query-replace-regexp)
+
+(global-set-key (kbd "s-a") 'replace-string)
+(global-set-key (kbd "M-s-a") 'replace-regexp)
+
+;; modes
+(global-set-key (kbd "<C-kp-1>") 'shell-mode)
+(global-set-key (kbd "<C-kp-4>") 'emacs-lisp-mode)
+(global-set-key (kbd "<C-kp-7>") 'text-mode)
+(global-set-key (kbd "<C-kp-8>") 'org-mode)
+(global-set-key (kbd "<C-kp-9>") 'python-mode)
+
+(global-set-key (kbd "s-t") 'toggle-word-wrap)
+
+(global-set-key (kbd "C-z") nil) ;; nil
+
+;; macroses
+(global-set-key (kbd "<C-f3>") 'kmacro-start-macro-or-insert-counter)
+(global-set-key (kbd "<C-f4>") 'kmacro-end-macro)
+(global-set-key (kbd "<C-f5>") 'kmacro-end-and-call-macro)
+(global-set-key (kbd "M-n") 'kmacro-start-macro-or-insert-counter)
+(global-set-key (kbd "M-o") 'kmacro-end-and-call-macro)
+
+;; other-window
+(global-set-key (kbd "<s-tab>") 'other-window)
+(global-set-key (kbd "C-x o") 'other-window)
+(global-set-key (kbd "<S-s-iso-lefttab>") (lambda () (interactive) (other-window -1)))
+;; splits
+(global-set-key (kbd "s-q") 'delete-other-windows)
+(global-set-key (kbd "s-w") 'split-window-vertically)
+(global-set-key (kbd "s-e") 'split-window-horizontally)
+
+;; switch to near buffer
+(defun ej/tab-to-previous-buffer ()
+  (interactive)
+  (switch-to-buffer (other-buffer (current-buffer))))
+(global-set-key (kbd "C-`") 'ej/tab-to-previous-buffer)
+
+;; delete matching/non-matching lines
+(global-set-key (kbd "C-x m") 'delete-matching-lines)
+(global-set-key (kbd "C-x M") 'delete-non-matching-lines)
+
+;; run last command
+(global-set-key (kbd "<C-f1>") 'ej/run-last-command)
+
+;; buffers
+(global-set-key (kbd "C-x C-b") 'ibuffer)
+
+;; editor options
+(global-set-key (kbd "s-k") 'ej/kill-line)
+(global-set-key (kbd "s-M-k") 'ej/save-kill-line)
+(global-set-key (kbd "C-s-k") 'ej/save-kill-line2)
+(global-set-key (kbd "s-u") 'ej/duplicate-line)
+(global-set-key (kbd "s-r") 'ej/kill-rectangle)
+(global-set-key (kbd "s-y") 'ej/insert-rectangle)
+(global-set-key (kbd "C-x s-r") 'string-insert-rectangle)
+(global-set-key (kbd "M-z") 'zap-up-to-char)
+(global-set-key (kbd "<ESC> M-%") 'query-replace-regexp)
+
+(global-set-key (kbd "<ESC><f5>") (lambda () (interactive) (revert-buffer t t)))
+(global-set-key (kbd "C-x s-g") (lambda () (interactive) (revert-buffer t t)))
+
+(fset 'ej/open-current-directory [f3 ?\C-d])
+(global-set-key (kbd "s-i") 'dired-jump)
+
+(global-set-key (kbd "C-x s-e") 'ej/replace-last-sexp)
+(global-set-key (kbd "s-h") 'ej/copy-all)
+
+(fset 'ej/remove-previous-command
+   [?\C-b ?\C-a ?\C-  ?\C-c ?\C-p ?\C-n ?\C-a ?\C-w ?\C-o ?. ?. ?. ?\C-f ?\C-e])
+(global-set-key (kbd "C-c s-d") 'ej/remove-previous-command)
+
+(global-set-key (kbd "C-x C-S-e") 'ej/replace-last-sexp)
+(global-set-key (kbd "s-o") 'ej/insert-time)
+(global-set-key (kbd "s-c") 'ej/calculator-mode)
+
+(global-set-key (kbd "C-S-s-d") 'ej/go-to-dir-reflexia)
+(global-set-key (kbd "s-g") 'find-file-at-point)
+(global-set-key (kbd "C-s-d") 'shell-command-on-buffer)
+
+(global-set-key (kbd "M-SPC") (lambda () (interactive)))
+(global-set-key (kbd "C-h C-f") 'find-function)
+(global-set-key (kbd "C-s-f") 'ej/copy-fname-to-clipboard)
+(global-set-key (kbd "C-x s-i") 'indent-relative)
+(global-set-key (kbd "C-x s-w") 'ido-switch-buffer)
+#+end_src
+** Locations
+#+begin_src emacs-lisp
+(defun ej/open-edownloads (&optional file-idx)
+  (interactive "p")
+  (find-file downloads-dir)
+  (ej/select-nth-file file-idx))
+
+(global-set-key (kbd "C-S-e") 'ej/open-edownloads)
+(global-set-key (kbd "C-S-c e") 'ej/select-nth-file)
+
+(defun ej/key-to-buffer (key buffer-name)
+  (global-set-key key `(lambda () (interactive) (switch-to-buffer ,buffer-name))))
+
+(ej/key-to-buffer (kbd "M-s-s") "*scratch*")
+(ej/key-to-buffer (kbd "s-`") "*trash-buffer*")
+(ej/key-to-buffer (kbd "s-ё") "*trash-buffer*")
+#+end_src
+** UTF-8 everywhere
+#+begin_src emacs-lisp
+(set-language-environment "UTF-8")
+(set-language-environment-coding-systems 'utf-8)
+(set-language-environment-input-method 'utf-8)
+(set-language-environment-nonascii-translation 'utf-8)
+(set-language-environment-charset 'utf-8)
+(set-language-environment-unibyte 'utf-8)
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+(set-default-coding-systems 'utf-8)
+(set-display-table-and-terminal-coding-system 'utf-8)
+(prefer-coding-system 'utf-8)
+(setq
+ default-buffer-file-coding-system 'utf-8
+ default-file-name-coding-system 'utf-8
+ selection-coding-system 'utf-8
+ coding-system-for-read 'utf-8
+ coding-system-for-write 'utf-8)
+#+end_src
+** Package: helm
+#+begin_src emacs-lisp
+(use-package helm
+  :bind (("C-c h" . 'helm-command-prefix)
+         ("M-x" . 'helm-M-x)
+         ("<f3>" . 'helm-find-files)
+         ("s-b" . 'helm-mini)
+         ("C-x C-r" . 'helm-recentf)
+         ("M-y" . 'helm-show-kill-ring))
+  :config
+  (require 'helm-config)
+  (helm-mode 1)
+  (global-unset-key (kbd "C-x c"))
+  (setq 
+   helm-split-window-in-side-p           t ; open helm buffer inside current window, not occupy whole other window
+   helm-move-to-line-cycle-in-source     t ; move to end or beginning of source when reaching top or bottom of source.
+   helm-ff-search-library-in-sexp        t ; search for library in `require' and `declare-function' sexp.
+   helm-scroll-amount                    20 ; scroll 8 lines other window using M-<next>/M-<prior>
+   helm-ff-file-name-history-use-recentf t
+   helm-echo-input-in-header-line t
+   helm-autoresize-min-height 20
+   helm-autoresize-max-height 40
+   )
+
+   (setq helm-recentf-fuzzy-match t
+     helm-locate-fuzzy-match t
+     helm-M-x-fuzzy-match t
+     helm-buffers-fuzzy-matching t
+     helm-semantic-fuzzy-match t
+     helm-apropos-fuzzy-match t
+     helm-imenu-fuzzy-match t
+     helm-lisp-fuzzy-completion t
+     helm-completion-in-region-fuzzy-match t)
+
+  (when (executable-find "curl") (setq helm-google-suggest-use-curl-p t))
+  (helm-autoresize-mode 1)
+
+  (setq helm-mini-default-sources '(helm-source-buffers-list
+                                  helm-source-recentf
+                                  helm-source-bookmarks
+                                  helm-source-buffer-not-found))
+  (use-package helm-projectile
+    :bind ("s-p h" . 'helm-projectile))
+  (use-package helm-descbinds)
+  (use-package helm-swoop
+    :config
+    (global-set-key (kbd "C-c C-g") 'helm-swoop))
+  (use-package helm-ls-git)
+  (use-package helm-dash)
+  (use-package helm-switch-shell)
+  (use-package helm-system-packages)
+  (use-package helm-org-rifle
+    :config
+    (define-key org-mode-map (kbd "C-c C-j") 'helm-org-rifle))
+  )
+(require 'helm)
+
+#+end_src
+** quelpa
+#+begin_src emacs-lisp
+(unless (package-installed-p 'quelpa)
+  (with-temp-buffer
+    (url-insert-file-contents "https://raw.githubusercontent.com/quelpa/quelpa/master/quelpa.el")
+    (eval-buffer)
+    (quelpa-self-upgrade)))
+(quelpa
+ '(quelpa-use-package
+   :fetcher git
+   :url "https://github.com/quelpa/quelpa-use-package.git"))
+(require 'quelpa-use-package)
+#+end_src
+* Config
+** shell
+*** basic config
+#+begin_src emacs-lisp
+;; pager for stdout
+(use-package shell
+  :config
+  (setenv "PAGER" "cat")
+  (setq system-uses-terminfo nil)
+  (add-hook 'shell-mode-hook 'ansi-color-for-comint-mode-on))
+#+end_src
+*** shortcuts
+#+begin_src emacs-lisp
+(setq ej/shell-cnt 6)
+(defun ej/shell-1-or-else (&optional new-shell) 
+  (interactive "P")
+  (if (null new-shell) (shell "*shell*<1>")
+    (let ((new-shell-buffer-name (format "*shell*<%d>" ej/shell-cnt)))
+      (setq ej/shell-cnt (1+ ej/shell-cnt))
+      (shell new-shell-buffer-name))))
+(global-set-key (kbd "s-n") 'ej/shell-1-or-else)
+
+(global-set-key (kbd "s-m") (lambda () (interactive) (shell "*shell*<2>")))
+(global-set-key (kbd "s-,") (lambda () (interactive) (shell "*shell*<3>")))
+(global-set-key (kbd "s-.") (lambda () (interactive) (shell "*shell*<4>")))
+(global-set-key (kbd "s-/") (lambda () (interactive) (shell "*shell*<5>")))
+
+(defun rename-shell (new-shell-name)
+  (interactive "senter new shell name: ")
+  (rename-buffer (format "*shell*<%s>" new-shell-name)))
+(global-set-key (kbd "C-c s-r") 'rename-shell)
+
+(global-set-key (kbd "C-x s-l") '(lambda () (interactive) (insert "alias l=\"ls -al\"") (comint-send-input)))
+#+end_src
+*** advice: disable asking
+https://stackoverflow.com/questions/2706527/make-emacs-stop-asking-active-processes-exist-kill-them-and-exit-anyway
+#+begin_src emacs-lisp
+(defadvice save-buffers-kill-emacs (around no-query-kill-emacs activate)
+  "Prevent annoying \"Active processes exist\" query when you quit Emacs."
+  (cl-letf (((symbol-function #'process-list) (lambda ())))
+    ad-do-it))
+#+end_src
+*** shell completion                    :DISABLED:
+Currently disabled due to inability to complete file-names
+#+begin_src emacs-lisp :tangle no
+(use-package pcmpl-args
+ :bind (:map shell-mode-map ("<tab>" . pcomplete)))
+#+end_src
+
+Can't complete name if there are only one variant
+#+begin_src emacs-lisp :tangle no
+(use-package helm-fish-completion
+  :bind (:map shell-mode-map ("<tab>" . helm-fish-completion)))
+#+end_src
+** dired
+#+begin_src emacs-lisp
+(setq dired-recursive-copies (quote always))
+(setq dired-dwim-target t) 
+; call split-window-vertically, then go to another dired dir. Now, when you press C to copy, the other dir in the split pane will be default destination. Same for R (rename; move).
+(require 'dired-x)
+(put 'dired-find-alternate-file 'disabled nil)
+(require 'ls-lisp)
+(setq ls-lisp-use-insert-directory-program nil)
+(setq dired-listing-switches "-aD")
+
+(defun open-in-external-app ()
+  "Open the current file or dired marked files in external app.
+Works in Microsoft Windows, Mac OS X, Linux."
+  (interactive)
+  (let ( doIt
+         (myFileList
+          (cond
+           ((string-equal major-mode "dired-mode") (dired-get-marked-files))
+           (t (list (buffer-file-name))))))
+
+    (setq doIt (if (<= (length myFileList) 5)
+                   t
+                 (y-or-n-p "Open more than 5 files?")))
+    (when doIt
+      (cond
+       ((string-equal system-type "windows-nt")
+        (--map (w32-shell-execute "open" (s-replace "/" "\\" it t t)) myFileList))
+       ((string-equal system-type "darwin")
+        (--map (let ((process-connection-type nil)) (start-process "" nil "open" it))  myFileList))
+       ((string-equal system-type "gnu/linux")
+        (--map (let ((process-connection-type nil)) (start-process "" nil "xdg-open" it)) myFileList))))))
+
+; todo remove..
+(add-hook
+ 'dired-load-hook
+ (function
+  (lambda ()
+    (load "dired-x")
+    ;; Set dired-x variables here.
+    ;; To and flo...
+    (if window-system (require 'dired-dd)))))
+
+(add-hook
+ 'dired-load-hook
+ (function
+  (lambda ()
+    (load "dired-x")
+    ;; Set dired-x variables here.
+    ;; To and flo...
+    (if window-system
+  (progn (require 'dired-dd)
+         (require 'dired-dd-mew)
+         (require 'dired-dd-insert-fname)
+         (require 'dired-dd-insert-file))))))
+
+(add-hook 'dired-before-readin-hook 
+          (lambda ()
+            (when (file-remote-p default-directory)
+              (setq dired-actual-switches "-al"))))
+
+(setq tramp-default-method "ssh")
+
+; (setq dired-omit-files "\\`[.]?#\\|\\`[.][.]?\\'")
+(setq dired-omit-files (concat dired-omit-files "\\|\\.i$"))
+
+(use-package async
+    :custom
+    (dired-async-mode 0))
+#+end_src
+** develop
+#+begin_src emacs-lisp
+(setq org-babel-python-command python-dir)
+(setq python-shell-interpreter python-dir)
+
+(add-hook 'python-mode-hook
+  (lambda ()
+    (setq indent-tabs-mode nil)
+    (setq python-indent 4)
+    (setq tab-width 2)))
+
+(setq ansi-color-names-vector
+      ["black" "tomato" "PaleGreen2" "gold1"
+       "DeepSkyBlue1" "MediumOrchid1" "cyan" "white"])
+
+(setq-default c-basic-offset 2 c-default-style "linux")
+(setq-default tab-width 2 indent-tabs-mode t)
+
+(autoload 'js2-mode "js2" nil t)
+
+;;; turn on syntax highlighting
+(global-font-lock-mode 1)
+
+;;; use groovy-mode when file ends in .groovy or has #!/bin/groovy at start
+(autoload 'groovy-mode "groovy-mode" "Major mode for editing Groovy code." t)
+(add-to-list 'auto-mode-alist '("\.groovy$" . groovy-mode))
+(add-to-list 'auto-mode-alist '("\.gant$" . groovy-mode))
+(add-to-list 'auto-mode-alist '("\.gradle$" . groovy-mode))
+(add-to-list 'interpreter-mode-alist '("groovy" . groovy-mode))
+
+;;; make Groovy mode electric by default.
+(add-hook 'groovy-mode-hook
+          (lambda ()
+             (require 'groovy-electric)
+             (groovy-electric-mode)))
+
+(setq inferior-lisp-program "/usr/bin/clisp")
+
+
+(add-hook 'haskell-mode-hook 'turn-on-haskell-indentation)
+(add-to-list 'auto-mode-alist '("\.m$" . octave-mode))
+
+;; js
+; (require 'nodejs-repl)
+(add-to-list 'auto-mode-alist '("\\.json$" . js-mode))
+; (add-hook 'js-mode-hook 'js2-minor-mode)
+(add-hook 'js2-mode-hook 'ac-js2-mode)
+(setq js2-highlight-level 3)
+(setq js-indent-level 2)
+
+(add-to-list 'auto-mode-alist '("\.g4$" . antlr-mode))
+
+;; for bash
+(add-to-list 'auto-mode-alist '("\.bash_aliases$" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\.bash_path$" . shell-script-mode))
+#+end_src
+** diff-hl-mode
+#+begin_src emacs-lisp
+(use-package diff-hl
+  :config
+  (add-hook 'org-mode-hook 'diff-hl-mode)
+  (add-hook 'prog-mode-hook 'diff-hl-mode))
+#+end_src
+** big files hook
+#+begin_src emacs-lisp
+(defun ej/find-file-check-make-large-file-read-only-hook ()
+  "If a file is over a given size, make the buffer read only."
+  (when (> (buffer-size) (* 10 1024 1024))
+    (setq buffer-read-only t)
+    (buffer-disable-undo)
+    (fundamental-mode)
+    ))
+(add-hook 'find-file-hook 'ej/find-file-check-make-large-file-read-only-hook)
+#+end_src
+** Themes
+#+begin_src emacs-lisp
+;; https://emacs.stackexchange.com/questions/24088/make-a-function-to-toggle-themes
+
+(defvar *ej/theme-dark* 'tron-legacy)
+(defvar *ej/theme-light* 'leuven)
+(defvar *ej/current-theme* nil)
+(defvar *ej/theme-location* last-theme-file)
+
+(defun ej/set-dark-theme ()
+  (interactive)
+  (message "setting dark theme...")
+	(use-package tron-legacy-theme
+    :custom
+    (tron-legacy-theme-softer-bg t)
+		:config
+		(load-theme 'tron-legacy t)
+    (set-face-attribute 'helm-selection nil
+                        :background "#3d5666" :foreground "white")))
+
+(defun ej/set-light-theme ()
+  (message "setting light theme...")
+  (interactive)
+  (load-theme 'leuven t))
+
+
+;; disable other themes before loading new one
+(defadvice load-theme (before theme-dont-propagate activate)
+  "Disable theme before loading new one."
+  (mapc #'disable-theme custom-enabled-themes))
+
+(defun ej/set-theme (theme)
+  (if (eq theme *ej/theme-dark*)
+    (ej/set-dark-theme)
+    (ej/set-light-theme))
+  (setq *ej/current-theme* theme)
+  (ej/write-string-to-file (format "%s" theme) *ej/theme-location*)
+  (ej/sync-cache-dir)
+)
+
+(defun ej/swap-cache-dir ()
+  " returns 'dark or 'light  "
+  (let* ((imgs-dir (ej/emacs-local-path "ltximg"))
+         (dark-dir (ej/emacs-local-path "ltximg_dark"))
+         (light-dir (ej/emacs-local-path "ltximg_light"))
+         (is-dark (file-exists-p light-dir))
+         (is-light (file-exists-p dark-dir)))
+    (if (or is-dark is-light)
+        (if is-dark
+            (progn
+              (rename-file imgs-dir dark-dir)
+              (rename-file light-dir imgs-dir)
+              'light)
+          (progn
+            (rename-file imgs-dir light-dir)
+            (rename-file dark-dir imgs-dir)
+            'dark))
+      (progn
+        (make-directory-ignore-error light-dir)
+        (make-directory-ignore-error imgs-dir)
+        'dark))))
+
+(defun ej/sync-cache-dir ()
+  (cl-flet ((sync-once ()
+                    (eq (equal (ej/swap-cache-dir) 'dark)
+                        (eq *ej/current-theme* *ej/theme-dark*))))
+        (cl-loop until (sync-once))))
+
+(defun ej/toggle-theme ()
+  (interactive)
+  (let ((theme (if (eq *ej/current-theme* *ej/theme-dark*) 
+                   ,*ej/theme-light*
+                 ,*ej/theme-dark*)))
+    (ej/set-theme theme)))
+;; (ej/toggle-theme)
+(defun load-theme-on-start ()
+	(let ((theme (if (not (file-exists-p *ej/theme-location*))
+									 ,*ej/theme-dark*
+								 (read (get-string-from-file *ej/theme-location*)))))
+		(ej/set-theme theme)))
+(load-theme-on-start)
+#+end_src
+* Modules
+<<modules>>
+** reverse-im
+#+begin_src emacs-lisp
+(use-package reverse-im
+  :ensure t
+  :config
+  (reverse-im-activate "russian-computer"))
+#+end_src
+** dashboard
+#+begin_src emacs-lisp
+(use-package dashboard
+  :config
+  (dashboard-setup-startup-hook))
+
+(setq
+ dashboard-banner-logo-title "Welcome to Emacs Dashboard!"
+ dashboard-center-content t
+ dashboard-show-shortcuts nil
+ dashboard-items '((recents  . 5)
+                   (bookmarks . 5)
+                   ; (projects . 5)
+                   (agenda . 20)
+                   (registers . 5))
+ initial-buffer-choice (lambda () (get-buffer "*dashboard*")))
+#+end_src
+** desktop: 
+#+begin_src emacs-lisp
+(use-package desktop
+  :config
+  (desktop-file-name "desktop" desktop-file)
+  (desktop-save-mode 1)
+  (setq desktop-save t)
+  (setq desktop-save-mode t)
+  (setq desktop-load-locked-desktop t)
+  :hook
+  (after-init . desktop-read)
+  (after-init . desktop-save-mode)
+)
+#+end_src
+** session
+#+begin_src emacs-lisp
+;; for saving commands history
+
+#+end_src
+** doom-modeline
+#+begin_src emacs-lisp
+(use-package doom-modeline
+  :ensure t
+  :init 
+  (setq doom-modeline-height 4)
+  (doom-modeline-mode 1)
+)
+; (doom-modeline-mode -1)
+#+end_src
+** multiple-cursors
+#+begin_src emacs-lisp
+(use-package multiple-cursors
+  :bind
+  ; multiple-cursors
+  ("C-S-c C-S-c" . 'mc/edit-lines)
+  ("C->" . 'mc/mark-next-like-this)
+  ("C-<" . 'mc/mark-previous-like-this)
+  ("C-c C-<" . 'mc/mark-all-like-this)
+)
+#+end_src
+** visual-regexp
+#+begin_src emacs-lisp
+(use-package visual-regexp
+  :bind
+  ("C-c r" . 'vr/replace)
+  ("C-c q" . 'vr/query-replace)
+  ("C-c m" . 'vr/mc-mark))
+#+end_src
+** projectile
+#+begin_src emacs-lisp
+(use-package projectile
+  :ensure t
+  :pin melpa-stable
+  :bind (:map projectile-mode-map
+              ("s-p" . 'projectile-command-map)
+              ("s-з" . 'projectile-command-map)
+              ("C-c p" . 'projectile-command-map))
+  :config
+  (projectile-mode +1))
+#+end_src
+** dired-subtree
+#+begin_src emacs-lisp
+(use-package dired-subtree
+  :bind (:map dired-mode-map ("i" . 'dired-subtree-toggle)))
+#+end_src
+** yafolding
+#+begin_src emacs-lisp
+(use-package yafolding
+  :bind
+  ("<C-S-return>" . nil)
+  ("<C-M-return>" . nil)
+  ("<C-return>" . nil)
+  ("C-c <C-M-return>" . 'yafolding-toggle-all)
+  ("C-c <C-S-return>" . 'yafolding-hide-parent-element)
+
+  ("C-c <C-return>" . 'yafolding-toggle-element)
+  )
+#+end_src
+** recentf
+#+begin_src emacs-lisp
+(use-package recentf
+  :init
+  (recentf-mode 1)
+  (setq recentf-max-menu-items 400)
+  (setq recentf-max-saved-items 400)
+)
+#+end_src
+** which-key
+#+begin_src emacs-lisp
+(use-package which-key
+  :config
+  (setq which-key-show-early-on-C-h t)
+  (setq which-key-idle-delay 0.5)
+  (setq which-key-idle-secondary-delay 0.05)
+  (which-key-mode))
+#+end_src
+** helpful
+#+begin_src emacs-lisp
+(use-package helpful
+  :bind (("C-h f"   . #'helpful-callable)
+         ("C-h v"   . #'helpful-variable)
+         ("C-h k"   . #'helpful-key)
+         ("C-c C-d" . #'helpful-at-point)
+         ("C-h F"   . #'helpful-function)
+         ("C-h C"   . #'helpful-command) ;; describe-coding-system >> interactive-functions 
+         ))
+#+end_src
+** kotlin-mode
+#+begin_src emacs-lisp
+(use-package kotlin-mode
+  :config
+  (add-to-list 'auto-mode-alist '("\.kt$" . kotlin-mode))
+  )
+#+end_src
+** google-translate
+#+begin_src emacs-lisp
+(use-package google-translate)
+; (require 'google-translate-default-ui)
+
+(fset 'ej/translate-yank [?\M-w ?\C-c ?T ?  ?  ?\C-y return])
+(fset 'ej/translate-yank-reverse [?\M-w ?\C-c ?\s-t ?  ?  ?\C-y return])
+(fset 'ej/translate-word-at-point [?\s-d ?\s-f])
+
+(setq google-translate-default-source-language "en")
+(setq google-translate-default-target-language "ru")
+
+;; (global-set-key "\C-ct" 'google-translate-at-point)
+(global-set-key "\C-cT" 'google-translate-query-translate)
+(global-set-key (kbd "C-c s-t") 'google-translate-query-translate-reverse)
+(global-set-key (kbd "s-f") 'ej/translate-yank)
+(global-set-key (kbd "M-s-f") 'ej/translate-word-at-point)
+
+; hotfix from https://github.com/atykhonov/google-translate/issues/98
+(defun google-translate-json-suggestion (jj)
+  (let ((info (aref jj 7)))
+    (if (and info (> (length info) 0))
+      (aref info 1)
+      nil)))
+
+(defvar saved-position nil)
+;(setq saved-position 5)
+;(message (number-to-string saved-position))
+(defun ej/copy-translated-word ()
+  "method for copy word for google-translate: current-buffer:dict, next buffer: google-translate. development: 
+   17.02.15: 50min. 
+   20.04.16: 19:44..19:49
+   30.04.16: "
+  (interactive)
+  (let* ((pos-char (read-char "which choice? "))
+         (pos (string-to-int (char-to-string pos-char))))
+    (if (numberp pos) '() (setq pos saved-position))
+    (message (concat "new arg!!: " (if pos (number-to-string pos) "nil!")))
+    (setq saved-position pos)
+    (other-window 1)
+    (search-forward-regexp (format "[\n ]%d[.]" pos)) ; 
+    (setq begin (point))
+    (search-forward "(")
+    (backward-char)
+;    (move-end-of-line 1)
+    (let* ((word (buffer-substring-no-properties begin (point)))
+           (splitted-word (split-string word " ("))
+           (first-word (car splitted-word)))
+      (other-window -1)
+      (insert first-word)
+      (org-cycle))))
+#+end_src
+** zetteldeft
+#+begin_src emacs-lisp
+(use-package zetteldeft
+  :after deft
+  :init
+  ;(zetteldeft-set-classic-keybindings))
+  )
+#+end_src
+
+** emms
+#+begin_src emacs-lisp
+(defun open-emms-or-play-directory-tree-if-empty (&optional directory)
+  (interactive 
+   (if emms-playlist-mode-open-playlists nil 
+     ;; copy from emms-source-file.el
+     (list
+      (emms-read-directory-name "Play directory tree: "
+                                emms-source-file-default-directory
+                                emms-source-file-default-directory
+                                t)))))
+
+(use-package emms
+  :config
+  (setq emms-directory emms-dir
+        emms-player-list '(emms-player-vlc emms-player-vlc-playlist emms-player-mpg321 emms-player-ogg123 emms-player-mplayer-playlist emms-player-mplayer)
+        emms-playlist-buffer-name "*Music*"
+        emms-source-file-default-directory music-dir)
+  (require 'emms-setup)
+  (emms-all)
+  (emms-default-players)
+  (require 'emms-info-libtag)
+  (setq emms-info-functions '(emms-info-libtag))
+  ;; todo maybe add emms-from-youtube after https://www.emacswiki.org/emacs/EMMS#toc14
+  ;; todo streams after
+  ;; read from here: https://www.gnu.org/software/emms/manual/#User-Variables
+  :bind (
+         ;; ("<f11>" . 'emms)
+         ("S-<f11>" . 'emms-play-directory-tree)
+         ("C-<f8>" . 'emms-pause)
+         ("C-<f9>" . 'emms-previous)
+         ("C-<f10>" . 'emms-next)
+         ("C-S-<f9>" . 'emms-seek-backward)
+         ("C-S-<f10>" . 'emms-seek-forward)
+         ("C-<f11>" . 'emms-volume-lower)
+         ("C-<f12>" . 'emms-volume-raise)
+         ("C-s-e" . 'emms)))
+
+#+end_src
+** saveplace
+#+begin_src emacs-lisp
+(use-package saveplace
+        :custom (ej/emacs-local-path "places")
+        :config (save-place-mode 1))
+#+end_src
+** pdf-tools, org-pdfview
+#+begin_src emacs-lisp
+(use-package pdf-tools
+  :config
+  (setq pdf-info-epdfinfo-program "/usr/local/bin/epdfinfo")
+  (add-to-list 'auto-mode-alist '("\\.pdf\\'" . pdf-view-mode))
+  (setq-default pdf-view-display-size 'fit-page)
+
+  (use-package saveplace-pdf-view)
+  (save-place-mode 1)
+
+  (message "pdf-tools configured")
+  :bind
+  (:map pdf-view-mode-map ("C-s" . isearch-forward))
+)
+;; loading pdf-tools only on first pdf open
+(add-to-list 'auto-mode-alist '("\\.pdf\\'" . pdf-tools-install))
+#+end_src
+** yaml-mode
+#+begin_src emacs-lisp
+(use-package yaml-mode
+  :config
+  (add-to-list 'auto-mode-alist '("\\.ya?ml\\'" . yaml-mode)))
+#+end_src
+** telega
+#+begin_src emacs-lisp
+(setq telega-contrib-path (concat telega-path "/contrib"))
+(use-package telega
+  :defer t
+  :load-path telega-path
+  :commands (telega)
+  :bind-keymap ("C-c t" . telega-prefix-map)
+  :custom
+  (telega-chat-input-markups '("markdown2" nil "markdown1")))
+
+(use-package telega-mnz
+  :defer t
+  :after telega
+  :load-path telega-contrib-path
+  :config
+  (add-hook 'telega-load-hook 'global-telega-mnz-mode)
+  :custom
+  (global-telega-mnz-mode t))
+#+end_src
+** emoji support
+#+begin_src emacs-lisp
+(use-package emojify
+  ;; :hook (after-init . global-emojify-mode)
+  :config
+  (setq emojify-emojis-dir (ej/emacs-local-path "emojis")) 
+  :init
+)
+(use-package company
+  :init
+  (company-mode)
+)
+(setq telega-emoji-company-backend 'telega-company-emoji)
+
+(defun ej/telega-chat-mode-emoji ()
+  (set (make-local-variable 'company-backends)
+       (append (list telega-emoji-company-backend
+                   'telega-company-username
+                   'telega-company-hashtag)
+             (when (telega-chat-bot-p telega-chatbuf--chat)
+               '(telega-company-botcmd))))
+  (company-mode 1)
+  (emojify-mode 1))
+
+(add-hook 'telega-chat-mode-hook 'ej/telega-chat-mode-emoji)
+#+end_src
+** ace-jump
+#+begin_src emacs-lisp
+(use-package ace-jump-mode
+  :config
+  (global-set-key (kbd "C-$") 'ace-jump-mode)
+  (global-set-key (kbd "C-;") 'ace-jump-mode))
+#+end_src
+** winner
+#+begin_src emacs-lisp
+(use-package winner
+  :custom
+  (winner-mode t))
+#+end_src
+** trashed
+#+begin_src emacs-lisp
+(use-package trashed)
+#+end_src
+** erefactor
+#+begin_src emacs-lisp
+(use-package erefactor
+  :config
+  (define-key emacs-lisp-mode-map (kbd "<S-f6>") 'erefactor-rename-symbol-in-buffer)
+  ;; :bind (:map emacs-lisp-mode-map ("<S-f6>" . erefactor-rename-symbol-in-buffer)))
+  (define-key emacs-lisp-mode-map "\C-c\C-v" erefactor-map))
+#+end_src
+* Functions
+<<utils>>
+** calculator
+<<calculator>>
+Sends expression to R and shows result as message on fly. 
+Installing =littler= required (=sudo apt install littler=).
+
+Usage:
+- go to new line or type ":"
+- press "s-c" to enter calc-mode
+- enter your expr
+- press
+  - "RET"   to insert result and exit calc-mode
+  - "C-RET" to replace expr with result and exit calc-mode
+  - "s-c"   just exit
+#+begin_src emacs-lisp
+(make-variable-buffer-local (defvar ej/calc-last "" "last evaluated expression"))
+(make-variable-buffer-local (defvar ej/calc-fullp nil "is read from beginning of line"))
+
+(defun string/starts-with (string prefix)
+  (and (string-match (rx-to-string `(: bos ,prefix) t) string) t))
+
+(setq SEARCH-START-CHARACTER ":")
+(defun ej/calculator ()
+  (interactive)
+  (let* ((p (point))
+         (s (- p (current-column)))
+         (almost-expr (buffer-substring-no-properties p s))
+         (indexof (search SEARCH-START-CHARACTER almost-expr :start2 0))
+         (expr (if (null indexof) almost-expr (substring almost-expr (1+ indexof) (length almost-expr))))
+         (balanced-expr (ej/balance expr))
+         (bash-expr (format "r -e 'cat(%s)'" balanced-expr))
+         (evaluated (shell-command-to-string bash-expr))
+         (output evaluated))
+    (setq ej/calc-fullp (null indexof))
+    (setq ej/calc-last output)
+    (message output)))
+(defun ej/balance (expr)
+  (let* ((open (s-count-matches "(" expr))
+         (close (s-count-matches ")" expr))
+         (diff (- close open)))
+    (if (eq diff 0) expr (concat (make-string (max 0 diff) ?\() expr (make-string (max 0 (- diff)) ?\))))))
+
+(defun exit-calc-remove-expr-insert-evaluated ()
+  (interactive)
+  (ej/calculator-mode -1) 
+  (if ej/calc-fullp (kill-line 0)
+    (progn
+      (let ((cur (point)))
+        (re-search-backward SEARCH-START-CHARACTER nil nil 1)
+        (kill-region (point) cur))))
+  (insert ej/calc-last))
+
+(defun exit-calc-insert-evaluated ()
+  (interactive)
+  (ej/calculator-mode -1)
+  (save-excursion
+    (insert ej/calc-last)))
+
+(define-minor-mode ej/calculator-mode
+  "my calculator"
+  :keymap (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") 'exit-calc-insert-evaluated)
+    (define-key map [(control return)] 'exit-calc-remove-expr-insert-evaluated)
+    map)
+  (if ej/calculator-mode
+      (add-hook 'post-command-hook 'ej/calculator)
+    (remove-hook 'post-command-hook 'ej/calculator)))
+
+#+end_src
+** quick copy
+#+begin_src emacs-lisp
+(defun ej/copy-shrugman ()
+  " do in shell: $ emacsclient --no-wait --eval '(ej/copy-shrugman)' "
+  (interactive)
+  (kill-new "¯\\_(ツ)_/¯"))
+
+(load "ej-quick-copy")
+#+end_src
+** quick link navigation/copy
+<<links-navigation>>
+
+Simplifies navigation via links in buffer.
+#+begin_src emacs-lisp
+;; working with links in buffer
+(defun ej/link-nav (count link-mover link-callback)
+  (dotimes (_ count) (funcall link-mover))
+  (set-mark (point))
+  (funcall link-callback (thing-at-point-url-at-point)))
+
+(defun ej/link-copier (link)
+  (kill-new link)
+  (message "Copied link: %s" link))
+
+(defun ej/copy-next-link (cnt) (interactive "p") (ej/link-nav cnt      'org-next-link     'ej/link-copier))
+(defun ej/copy-prev-link (cnt) (interactive "p") (ej/link-nav cnt      'org-previous-link 'ej/link-copier))
+(defun ej/open-next-link (cnt) (interactive "p") (ej/link-nav (1- cnt) 'org-next-link     'browse-url-of-file))
+
+(global-set-key (kbd "<f7>")   'ej/copy-next-link)
+(global-set-key (kbd "<S-f7>") 'ej/copy-prev-link)
+(global-set-key (kbd "<C-f7>") 'ej/open-next-link)
+#+end_src
+** line helpers
+#+begin_src emacs-lisp
+(defun ej/duplicate-line ()
+  (interactive)
+  (save-excursion
+    (let* ((line (thing-at-point 'line)))
+      (end-of-line)
+      (forward-line 1)
+      (insert line)))
+  (next-line 1))
+
+(defun ej/kill-line (&optional mode)
+  "Kill current line saving position from beginning of line."
+  (interactive "p")
+  (message "mode: %d" mode)
+  (ej/kill-line-helper mode nil))
+
+(defun ej/save-kill-line (&optional mode)
+  "Save kill current line saving position from beginning of line."
+  (interactive "p")
+  (ej/kill-line-helper mode t))
+
+(defun ej/save-kill-line2 ()
+  "like C-k but save"
+  (interactive)
+  (save-excursion
+    (let* ((cur (point))
+           (_ (end-of-line 1)))
+       (kill-ring-save cur (point))))
+  (message "copied: \"%s\"" (current-kill 0)))
+
+(defun ej/kill-line-helper (mode save-p)
+  "Kill current line saving position from beginning of line."
+  (interactive)
+  (let ((pos (point)))
+    (move-beginning-of-line 1)
+    (let ((indent (- pos (point))))
+      (kill-line mode)
+      (if save-p (yank))
+      (if (= (point) (point-max))  (previous-line))
+      (let ((new_pos (point)))
+        (end-of-line)
+        (if (> (point) (+ new_pos indent))
+            (progn 
+              (move-beginning-of-line 1)
+              (forward-char indent)))))))
+(fset 'ej/kill-rectangle     "\C-xrk")
+(fset 'ej/insert-rectangle   "\C-xry")
+
+(defun ej/remove-duplicate-lines()
+  (interactive)
+  (beginning-of-buffer)
+  (replace-regexp "\\([^\n]+\n\\)\\1+" "\\1"))
+(global-set-key (kbd "<S-f9>") 'ej/remove-duplicate-lines)
+#+end_src
+** insert time
+<<time-inserter>>
+Inserts time in different formats.
+#+begin_src emacs-lisp
+(setq TIME-FORMATS '(
+  (1 "%H:%M")
+  (2 "%d.%m.%y")
+  (3 "upd: %d.%m.%y-%H:%M:%S. ")
+  (4 "date: %d.%m.%y-%H:%M:%S")
+  (5 "%d.%m.%y-%H:%M")
+  (6 "%d.%m.%y-%H:%M:%S")
+  (7 "resolution(%d.%m.%y-%H:%M): ")
+  (8 "%H:%M:%S")
+  (9 "[%Y-%m-%d %a %H:%M]")
+  (16 "%d.%m.%y %a")
+  ))
+(setq TIME-FORMAT-DEFAULT "%H:%M")
+
+(defun ej/insert-time (&optional mode)
+  (interactive "p")
+  (if (eq mode 0) 
+      (ej/ins-time)
+    (insert (ej/time mode))))
+
+; todo make also good-looking modes (for typing (ej/insert-time 'full-date))
+(defun ej/time (&optional mode)
+  (let* ((time-entry (assoc mode TIME-FORMATS))
+        (time-fmt (if (null time-entry) TIME-FORMAT-DEFAULT (cadr time-entry))))
+    (format-time-string time-fmt (current-time))))
+
+(global-set-key (kbd "s-o") 'ej/insert-time)
+#+end_src
+** enumerate lines
+#+begin_src emacs-lisp
+(defvar enumerate-line-num)
+
+(defun enumerate-line (start end fmt)
+  (string-rectangle-line start end (format fmt enumerate-line-num) t)
+  (incf enumerate-line-num))
+  
+(defun enumerate-rectangle (start end &optional first-number)
+"Replace the region-rectangle with numbers beginning at 1 and incrementing for each line.
+
+You can use the universal argument to change the initial value.
+For example, to start counting lines at zero:
+
+C-u 0 M-x enumerate-rectangle"
+  (interactive "*r\np")
+  (setq enumerate-line-num first-number)
+  (let (line0 lineN fmt)
+    (save-excursion
+      (goto-char start)
+      (setq line0 (line-number-at-pos))
+      (goto-char end)
+      (setq lineN (line-number-at-pos)))
+    (setq fmt (concatenate 'string 
+                           "%" 
+                           (format "%0d" (string-width (format "%0d" (+ enumerate-line-num (- lineN line0)))))
+                           ".1d"))))
+#+end_src
+** emacs lisp functions
+#+begin_src emacs-lisp
+(defun get-by-key (key list)
+  (interactive)
+  (cdr (assoc key list)))
+
+(defun empty (s)
+  (= 0 (length s)))
+#+end_src
+** find file helpers
+#+begin_src emacs-lisp
+(defun ej/find-file-goto-line (name &optional line-or-substr)
+  (interactive)
+  (if (not (null name))
+      (find-file name))
+  (if line-or-substr 
+      (if 
+          (stringp line-or-substr)
+          (search-forward line-or-substr)
+        (goto-line line-or-substr))))
+(defalias 'g 'ej/find-file-goto-line)
+(defalias 'ffap 'find-file-at-point)
+
+(defun ej/find-file-goto-line-notes (name line-or-substr)
+  (interactive)
+  (ej/find-file-goto-line name line-or-substr)
+  (org-cycle 2))
+(defalias 'gur 'ej/find-file-goto-line-notes)
+#+end_src
+** dired stuff
+#+begin_src emacs-lisp
+(defun ej/dired-get-size ()
+  " runs command $ du -sch SOME_FILE "
+  (interactive)
+  (let ((files (dired-get-marked-files)))
+    (with-temp-buffer
+      (apply 'call-process "/usr/bin/du" nil t nil "-sch" files)
+      (message "Size of all marked files: %s"
+               (progn 
+                 (re-search-backward "\\(^[0-9.,]+[A-Za-z]+\\).*total$")
+                 (match-string 1))))))
+(define-key dired-mode-map (kbd "?") 'ej/dired-get-size)
+
+(defun ej/select-nth-file (&optional file-idx)
+  (interactive)
+  (revert-buffer)
+  (message (format "%s" file-idx))
+  (let* (
+         (idx (if (null file-idx) 0 (1- file-idx)))
+         (file-regexp "^\\([^.]\\|\\.[^.]\\|\\.\\..\\)")
+         (dir default-directory)
+         (files (sort (directory-files-and-attributes dir nil file-regexp)
+                      #'(lambda (x y) (not (time-less-p (nth 6 x) (nth 6 y))))))
+         (nth-edited (car (nth idx files))))
+    (message nth-edited)
+    (beginning-of-buffer)
+    (search-forward nth-edited)))
+#+end_src
+** diff-helper
+#+begin_src emacs-lisp
+(setq tmp-name1 "/tmp/from-emacs-1")
+(setq tmp-name2 "/tmp/from-emacs-2")
+(setq tmp-name3-diff "/tmp/from-emacs-3.diff")
+(setq tmp-name3-wdiff "/tmp/from-emacs-3.wdiff")
+
+(defun ej/diff-helper (command fname-out)
+  "19:00 - 19:11"
+  (interactive)
+  (delete-file-quite tmp-name1)
+  (delete-file-quite tmp-name2)
+  (save-excursion
+    (let ((point-a (point))
+          (_ (exchange-point-and-mark))
+          (point-b (point)))
+      (write-region point-a point-b tmp-name1 t)))
+  (write-region (current-kill 0) nil tmp-name2 'append)
+  (shell-command (format "%s %s %s > %s" command tmp-name1 tmp-name2 fname-out))
+  (g fname-out))
+
+(defun ej/diff ()
+  (interactive)
+  (ej/diff-helper "diff" tmp-name3-diff))
+
+(defun ej/patch-wdiff (regexp color)
+  (beginning-of-buffer)
+  (while (re-search-forward regexp nil t)
+    (let* ((start (match-beginning 0)))
+      (kill-region start (point))
+      (insert (propertize (current-kill 0) 'font-lock-face `(:foreground ,color))))))
+
+(defun ej/colorize-wdiff ()
+  (interactive)
+  (ej/patch-wdiff "\\[-\\(.\\|\n\\)*?-]" "red")
+  (ej/patch-wdiff "{\\+\\(.\\|\n\\)*?\\+}" "green"))
+
+(defun ej/wdiff ()
+  (interactive)
+  (ej/diff-helper "wdiff" tmp-name3-wdiff)
+  (ej/colorize-wdiff))
+#+end_src
+** search buffers
+elisp/search-all-buffers
+https://coderwall.com/p/aiegfa/search-all-open-emacs-buffers
+I know that string is in my Emacs somewhere!
+#+begin_src emacs-lisp
+(require 'grep)
+(defun search-all-buffers (regexp prefix)
+  "Searches file-visiting buffers for occurence of REGEXP.  With
+prefix > 1 (i.e., if you type C-u \\[search-all-buffers]),
+searches all buffers."
+  (interactive (list (grep-read-regexp)
+                     current-prefix-arg))
+  (message "Regexp is %s; prefix is %s" regexp prefix)
+  (multi-occur
+   (if (member prefix '(4 (4)))
+       (buffer-list)
+     (remove-if
+      (lambda (b) (some (lambda (rx) (string-match rx  (file-name-nondirectory (buffer-file-name b)))) search-all-buffers-ignored-files))
+      (remove-if-not 'buffer-file-name (buffer-list))))
+
+   regexp))
+(defcustom search-all-buffers-ignored-files (list (rx-to-string '(and bos (or ".bash_history" "TAGS") eos)))
+  "Files to ignore when searching buffers via \\[search-all-buffers]."
+  :type 'editable-list)
+#+end_src
+** work with files
+#+begin_src emacs-lisp
+(defun xah-delete-current-file-make-backup (&optional @no-backup-p)
+  "Delete current file, makes a backup~, closes the buffer.
+   Backup filename is “‹name›~‹date time stamp›~”. Existing file of the same name is overwritten.
+   If the file is not associated with buffer, the backup file name starts with “xx_”.
+   When `universal-argument' is called first, don't create backup.
+   URL `http://ergoemacs.org/emacs/elisp_delete-current-file.html'
+   Version 2016-07-20"
+  (interactive "P")
+  (let* (
+         ($fname (buffer-file-name))
+         ($buffer-is-file-p $fname)
+         ($backup-suffix (concat "~" (format-time-string "%Y%m%dT%H%M%S") "~")))
+    (if $buffer-is-file-p
+        (progn
+          (save-buffer $fname)
+          (when (not @no-backup-p)
+            (copy-file
+             $fname
+             (concat $fname $backup-suffix)
+             t))
+          (delete-file $fname)
+          (message "Deleted. Backup created at 「%s」." (concat $fname $backup-suffix)))
+      (when (not @no-backup-p)
+        (widen)
+        (write-region (point-min) (point-max) (concat "xx" $backup-suffix))
+        (message "Backup created at 「%s」." (concat "xx" $backup-suffix))))
+    (kill-buffer (current-buffer))))
+
+(defun delete-file-quite (file)
+  (if (file-exists-p file) (delete-file file)))
+#+end_src
+** filename to clipboard
+#+begin_src emacs-lisp
+(defun ej/copy-fname-to-clipboard ()
+  "Copy the current buffer file name to the clipboard."
+  (interactive)
+  (let ((filename (if (equal major-mode 'dired-mode)
+                      default-directory
+                    (buffer-file-name))))
+    (when filename
+      (kill-new filename)
+      (message "Copied buffer file name '%s' to the clipboard." filename))))
+
+(defun ej/copy-buffer-file-name (&optional mode)
+  " improvement: C-u fname should copy file at point in dired
+    time: 21.02.19:[19:07..19:16]
+    resolution: wontfix. Found that <C-0 w> in dired-mode copy absolute path
+    time: 06.03.19:[14:42..14:49]: C-0 fname -> copy short file name
+  "
+  (interactive "p")
+  (let* ((file-name (buffer-file-name))
+         (prepared-file-name 
+          (if (eq mode 0)
+              (car (last (split-string file-name "/")))
+            file-name)))
+     (kill-new prepared-file-name)))
+(buffer-file-name)
+(defalias 'fname 'ej/copy-buffer-file-name)
+(defalias 'fname 'ej/copy-fname-to-clipboard)
+#+end_src
+** copy helpers
+#+begin_src emacs-lisp
+(defun ej/copy-word ()
+  (interactive)
+  (set-mark (point))
+  (forward-word)
+  (kill-ring-save (mark) (point))
+  (forward-char))
+(global-set-key (kbd "s-d") 'ej/copy-word)
+
+(defun ej/copy-all ()
+    "Copy entire buffer to clipboard"
+    (interactive)
+    (clipboard-kill-ring-save (point-min) (point-max))
+    (message "Copy done."))
+
+(defun ej/copy-region-to-temp ()
+  (interactive)
+  (exchange-point-and-mark)
+  (setq begin (point))
+  (exchange-point-and-mark)
+  (setq myStr (buffer-substring-no-properties begin (point)))
+  (setq fname "/tmp/tmp.tmp")
+  (delete-file fname)
+  (append-to-file begin (point) fname)
+  (with-current-buffer "tmp.tmp"
+        (when (and (buffer-file-name) (file-exists-p (buffer-file-name)) (not (buffer-modified-p)))
+          (erase-buffer)
+          (append-to-buffer))))
+
+(defun ej/copy-big-word ()
+  (interactive)
+  (search-backward-regexp "[^a-zA-Z0-9-\./]")
+  (forward-char)
+  (setq begin (point))
+  (search-forward-regexp "[^a-zA-Z0-9-\./]")
+  (kill-ring-save begin (point)))
+#+end_src
+** copy/paste images
+https://emacs.stackexchange.com/questions/41016/how-can-i-yank-images-from-emacs
+#+begin_src emacs-lisp
+(defun ej/x11-yank-image-at-point-as-image ()
+  "Yank the image at point to the X11 clipboard as image/png.
+   https://emacs.stackexchange.com/questions/41016/how-can-i-yank-images-from-emacs
+  "
+  (interactive)
+  (let ((image (get-text-property (point) 'display)))
+    (if (eq (car image) 'image)
+        (let ((data (plist-get (cdr image) ':data))
+              (file (plist-get (cdr image) ':file)))
+          (cond (data
+                 (with-temp-buffer
+                   (insert data)
+                   (call-shell-region
+                    (point-min) (point-max)
+                    "xclip -i -selection clipboard -t image/png")))
+                (file
+                 (if (file-exists-p file)
+                     (start-process
+                      "xclip-proc" nil "xclip"
+                      "-i" "-selection" "clipboard" "-t" "image/png"
+                      "-quiet" (file-truename file))))
+                (t 
+                (message "The image seems to be malformed."))))
+      (message "Point is not at an image."))))
+
+(defun is-pdf-buffer () (s-ends-with-p ".pdf" (buffer-file-name)))
+
+(defun ej/org-screenshot ()
+  "Take a screenshot into a time stamped unique-named file in the
+same directory as the org-buffer and insert a link to this file."
+  (interactive)
+  (let ((movep (if (is-pdf-buffer) (progn (other-window 1) t) nil)))
+    (progn
+      (setq filename
+            (concat
+             (make-temp-name
+              (concat (buffer-file-name)
+                      "_"
+                      (format-time-string "%Y%m%d_%H%M%S_")) ) ".png"))
+      (call-process "import" nil nil nil filename)
+      (insert (concat "[[" filename "]]\n\n"))
+      (org-display-inline-images)
+      (if movep (other-window 1)))))
+(global-set-key (kbd "<s-f3>") 'ej/org-screenshot)
+#+end_src
+** etc
+#+begin_src emacs-lisp
+(defun google-it (&optional input-seq)
+  (interactive)
+  (if (null input-seq) 
+      (progn
+        (exchange-point-and-mark)
+        (setq begin (point))
+        (exchange-point-and-mark)
+        (setq seq (buffer-substring-no-properties begin (point))))
+    (setq seq input-seq))
+  (shell-command (concat  "chromium-browser \"https://www.google.ru/search?q=" seq "\" && wmctrl -a chromium-browser")))
+
+(defun ej/zap-to-char (arg char)
+  "Zap to a character"
+  (interactive "p\nc my Zap to char: ")
+  (setq begin (point))
+  (search-forward (char-to-string char))
+  (backward-char 1)
+  (kill-region begin (point)))
+
+(defun ej/saved-zap-to-char (arg char)
+  "Zap to a character"
+  (interactive "p\nc my saved Zap to char: ")
+  (setq begin (point))
+  (search-forward (char-to-string char))
+  (backward-char 1)
+  (kill-ring-save begin (point)))
+
+(defun ej/insert-macros ()
+  (interactive)
+  (name-last-kbd-macro 'a)
+  (insert-kbd-macro 'a))
+
+(fset 'ej/open-last-file
+   [f3 ?\C-f ?\M-p return])
+
+(fset 'ej/parse-time
+   [?\C-  ?\C-f tab tab ?\C-w ?\C-s ?| ?\C-b ?\C-b ?  ?= ?\C-5 ?\C-d ?\C-d ?\C-\M-f ?\C-\M-f ?. ?. ?\C-3 ?\C-d ?\C-\M-f ?\C-\M-f ?\C-k])
+
+(defun ej/sum ()
+  (interactive)
+  (setq end0 (point))
+  (exchange-point-and-mark)
+  (setq start0 (point))
+  (exchange-point-and-mark)
+  (let* ((start (min start0 end0))
+         (end (max start0 end0)))
+        (goto-char start)
+        (insert "(+ ")
+        (goto-char (+ end 3))
+        (insert ")")
+        (ej/replace-last-sexp)))
+
+;; http://www.emacswiki.org/emacs/KillingBuffers
+(defun ej/close-all-dirs ()
+       "Kill all dired buffers. Also IbufferMode: simply type C-x C-b * / D yes RET."
+       (interactive)
+       (save-excursion
+         (let ((count 0))
+           (dolist (buffer (buffer-list))
+             (set-buffer buffer)
+             (when (equal major-mode 'dired-mode)
+               (setq count (1+ count))
+               (kill-buffer buffer)))
+           (message "Killed %i dired buffer(s)." count))))
+
+(defun ej/get-cur-dir ()
+  (interactive)
+  (save-excursion
+    (re-search-backward (rx ":" (group (1+ any)) " $"))
+    (buffer-substring-no-properties (match-beginning 1) (en (match-end 1)))))
+
+(require 'url)
+(defun insert-image-from-url (&optional url)
+  (interactive)
+  (unless url (setq url (url-get-url-at-point)))
+  (unless url
+    (error "Couldn't find URL."))
+  (let ((buffer (url-retrieve-synchronously url)))
+    (unwind-protect
+         (let ((data (with-current-buffer buffer
+                       (goto-char (point-min))
+                       (search-forward "\n\n")
+                       (buffer-substring (point) (point-max)))))
+           (insert-image (create-image data nil t)))
+      (kill-buffer buffer))))
+(setq shr-max-image-proportion 0.3)
+
+(defalias 'strip 's-trim)
+
+;; https://stackoverflow.com/questions/15869131/emacs-shell-command-on-buffer
+; todo fix. Now it doesn't work
+(defun shell-command-on-buffer (command)
+  (interactive "sShell command on buffer: ")
+  (save-excursion
+    (shell-command-on-region (point-min) (point-max) command)))
+
+(defun ej/remove-new-lines ()
+  (interactive)
+  (replace-string "\n" " ")
+  (move-beginning-of-line 1)
+  (query-replace "- " ""))
+
+(fset 'ej/run-last-command
+   [?\M-x ?\M-p return])
+
+(defun ej/jump-to(arg)
+    (interactive)
+    (search-forward arg))
+(defalias 'mjt 'ej/jump-to)
+
+(defun swap-buffers-in-windows ()
+  "Put the buffer from the selected window in next window, and vice versa
+   https://stackoverflow.com/a/1774949/14354364 "
+  (interactive)
+  (let* ((this (selected-window))
+     (other (next-window))
+     (this-buffer (window-buffer this))
+     (other-buffer (window-buffer other)))
+    (set-window-buffer other this-buffer)
+    (set-window-buffer this other-buffer)
+    )
+  )
+
+(defun sudo-edit (&optional arg)
+  "Edit currently visited file as root. With a prefix ARG prompt for a file to visit.
+   Will also prompt for a file to visit if current buffer is not visiting a file."
+  (interactive "P")
+  (if (or arg (not buffer-file-name))
+      (find-file (concat "/sudo:root@localhost:"
+                         (ido-read-file-name "Find file(as root): ")))
+    (find-alternate-file (concat "/sudo:root@localhost:" buffer-file-name))))
+
+(defun fullscreen ()
+  (interactive)
+  (set-frame-parameter nil 'fullscreen
+           (if (frame-parameter nil 'fullscreen) nil 'fullboth)))
+
+(defun ej/reopen ()
+  (interactive)
+  (let ((fn (buffer-file-name))
+        (pnt (point)))
+    (when (not (null fn))
+      (kill-this-buffer)
+      (find-file fn)
+      (goto-char pnt))))
+
+(defun last-killed ()
+  (interactive)
+  (substring-no-properties (car kill-ring)))
+#+end_src
+** punto
+#+begin_src emacs-lisp
+(defvar my:en-chars0 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+(defvar my:ru-chars0 "абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ")
+
+(defvar my:en-chars "`1234567890-=qwertyuiop[]asdfghjkl;'zxcvbnm,./ ~!@#$%^&*()_+QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?")
+(defvar my:ru-chars "ё1234567890-=йцукенгшщзхъфывапролджэячсмитьбю. Ё!\"№;%:?*()_+ЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ,")
+(defvar my:en-ru-en-table (cl-mapcar 'cons (concat my:en-chars my:ru-chars) (concat my:ru-chars my:en-chars)))
+
+(defun ej/punto-translate-char (ch)
+  (cdr (assoc ch my:en-ru-en-table)))
+
+(defun ej/punto-translate-char-in-str (ch)
+  (cdr (assoc (string-to-char ch) my:en-ru-en-table)))
+
+(defun ej/punto (beg end &optional arg)
+  "todo write doc"
+  (interactive "*r\nP")
+  (save-excursion
+  (goto-char beg)
+  (setq translated-char nil)
+  (do () ((>= (point) end))
+    (setq translated-char (ej/punto-translate-char (char-after (point))))
+     (if (equal nil translated-char)
+        (forward-char 1)
+      (progn (delete-char 1)
+             (insert translated-char)))))
+  (unless (equal nil translated-char)
+  (forward-char 1)))
+    
+#+end_src
+** python copy section
+#+begin_src emacs-lisp
+(defun avi-kill-line-save (&optional arg)
+      "Copy to the kill ring from point to the end of the current line.
+    With a prefix argument, copy that many lines from point. Negative
+    arguments copy lines backward. With zero argument, copies the
+    text before point to the beginning of the current line."
+      (interactive "p")
+      (save-excursion
+        (copy-region-as-kill
+         (point)
+         (progn (if arg (forward-visible-line arg)
+                  (end-of-visible-line))
+                (point)))))
+
+; todo improve or research some normal python-mode
+(defun ej/copy-python-section()
+  " 3:00 - 03:15, 00:12 -  "
+  (interactive)
+  (let ((continue t))
+    (while continue
+      (avi-kill-line-save)
+      (next-line)
+      (setq continue (equal (following-char) ?\ ))
+      (other-window 1)
+      (yank)
+      (if (not continue)
+        (comint-send-input)
+        (progn
+          (open-line 1)
+          (next-line)))
+      (other-window -1))))
+#+end_src
+* Hydra
+** module
+#+begin_src emacs-lisp
+(use-package hydra)
+#+end_src
+** hydra: navigations
+#+begin_src emacs-lisp
+(defun ej/toggle-pdf-org ()
+  (interactive)
+  (let* ((bfn buffer-file-name)
+         (fn-no-ext (file-name-sans-extension bfn))
+         (fn-ext (file-name-extension bfn))
+         (new-ext (if (equal "org" fn-ext) "pdf" "org"))
+         (new-bfn (concat fn-no-ext "." new-ext))
+         (buf (find-file-noselect new-bfn))
+         )
+    (switch-to-buffer buf)))
+
+(defhydra ej/hydra-buffers-windows (:foreign-keys warn :columns 1)
+  " Hydra navigation stuff "
+  ("1" telega "TELEGA" :exit t)
+  ("e" split-window-horizontally "split horizontally")
+  ("v" split-window-vertically "split vertically")
+  ("o" other-window "other window")
+  ("i" ej/org-insert-env/body "insert env ORG hydra" :exit t)
+  ("I" ej/tex-insert-env/body "insert env TEX hydra" :exit t)
+  ("j" (progn (setq *run-again* t) (ej/navigate-main 1)) "jump" :color blue)
+  ("q" delete-other-windows "delete-other-windows")
+  ("0" delete-window "delete-window")
+  ("s" swap-buffers-in-windows "swap windows" :exit t)
+  ("t" ej/toggle-pdf-org "toggle pdf <-> org" :exit t)
+  ("T" ej/toggle-theme "toggle theme" :exit t)
+  ("m" (switch-to-buffer "*Messages*") "*Messages*" :exit t)
+  ("p" (switch-to-buffer "*Packages*") "*Packages*" :exit t)
+  ("P" (switch-to-buffer "*Python*") "*Python*" :exit t)
+  ("l" (switch-to-buffer "*Org PDF LaTeX Output*") "*Org PDF LaTeX Output*" :exit t)
+  ("L" (ej/remove-last-ltximg-latex-preview 1) "remove last latex" :exit t)
+  ("<ESC>" nil "quit")
+)
+
+(global-set-key (kbd "<M-f8>") 'ej/hydra-buffers-windows/body)
+#+end_src
+** hydra: interactive emacs lisp
+#+begin_src emacs-lisp
+(defun ej/replace-last-sexp (mode)
+  (interactive "p")
+  (let ((value (eval (preceding-sexp))))
+  (if (eq mode 1) (kill-sexp -1))
+  (insert (format "%S" value))))
+
+(defun ej/cur-sexp ()
+  (interactive)
+  (let* ((pos-end (point))
+         (_ (backward-sexp)))
+    (read (buffer-substring-no-properties (point) pos-end))))
+
+(defun ej/setq-let ()
+  (interactive)
+  (save-excursion
+    (let* ((sexp (ej/cur-sexp))
+           (var (car sexp)))
+			(eval `(setq ,var ,(cadr sexp)))
+			(message "%s >> %s" var (symbol-value var)))))
+
+(global-set-key (kbd "C-x C-M-e") 'ej/setq-let)
+(global-set-key (kbd "C-x C-s-e") 'ej/setq-let)
+
+(defun ej/setq-last-sexp (var)
+  (interactive "senter var name: ")
+  (save-excursion
+    (eval `(setq ,(read var) ,(ej/cur-sexp)))
+    (message "%s >> %s" var (symbol-value var-symbol))))
+
+(defun ej/setq-killed (var)
+  (interactive "senter var name: ")
+  (let* ((var-symbol (read var))
+         (kill (substring-no-properties (current-kill 0))))
+    (eval `(setq ,var-symbol ,kill))
+    (message "%s >> %s" var (symbol-value var-symbol))))
+
+(defun ej/message-last-sexp ()
+  (interactive)
+  (let* ((sexp (ej/cur-sexp)))
+    (message "sexp: %s >> %s" sexp (eval sexp))))
+
+(defhydra ej/elisp-interactive (:columns 1 :foreign-keys warn :exit t)
+  "Emacs Lisp interactive stuff"
+  ("r" ej/replace-last-sexp "replace last sexp")
+  ("s" ej/setq-last-sexp "setq last sexp")
+  ("m" ej/message-last-sexp "message last sexp")
+  ("l" ej/setq-let "setq last let-sexp")
+  ("k" ej/setq-killed "setq killed")
+  ("<ESC>" nil "exit")
+  )
+(global-set-key (kbd "<M-f5>") 'ej/elisp-interactive/body)
+#+end_src
+** hydra: yank patchers
+#+begin_src emacs-lisp
+(defun ej/yank-downloaded-title ()
+  "insert in this buffer title for yanked url"
+  (interactive)
+  (let* ((url (car kill-ring))
+         (command (format "wget -qO- %s |  gawk -v IGNORECASE=1 -v RS='</title' 'RT{gsub(/.*<title[^>]*>/,\"\");print;exit}'" url)))
+    (insert (shell-command-to-string command))))
+(defalias 'titlize 'ej/insert-title)
+
+(defun ej/yank-double-slashes ()
+  (interactive)
+  (insert (s-replace "\\" "\\\\" (current-kill 0))))
+
+(defun ej/yank-encode-wiki-links ()
+  (interactive)
+  (let* ((killed (substring-no-properties (current-kill 0)))
+         (is-link (cl-search "://" killed))
+         (patched-killed (if is-link (decode-coding-string (url-unhex-string killed) 'utf-8) killed))
+         (patched-killed-2 (s-replace " " "%20" patched-killed)))
+    (insert patched-killed-2)))
+
+(defun ej/yank-title-as-filename ()
+  (interactive)
+  (let* (
+         (killed (substring-no-properties (current-kill 0)))
+         (patched (s-replace-regexp "[\s\n_–]" "-" (downcase killed)))
+         (patched2 (s-replace "," "" patched))
+         (patched3 (s-replace ":" "" patched2))
+         )
+    (insert patched3)))
+
+(defun ej/yank-link-to-wiki ()
+  (interactive)
+  (let* (
+         (link (substring-no-properties (current-kill 0)))
+         (title-raw (cadr (split-string link "/wiki/")))
+         (title-raw2 (decode-coding-string (url-unhex-string title-raw) 'utf-8))
+         (title (s-replace "_" " " title-raw2))
+         )
+    (insert (format "[[%s][wiki: %s]]" link title))))
+
+(defun ej/yank-python-onelinefy ()
+  (interactive)
+  (let* ((code (substring-no-properties (current-kill 0)))
+         (code-2 (s-replace-regexp "\n *" "; " code))
+         (code-3 (s-replace ":;" ":" code-2))
+         (code-4 (s-trim code-3)))
+     (insert (format "`%s`" code-4))))
+
+(defhydra ej/hydra-yank (:foreign-keys warn :columns 1 :exit t)
+  " Yank wrappers "
+  ("t" ej/yank-downloaded-title "download url title")
+  ("/" ej/yank-double-slashes "fix slashes")
+  ("w" ej/yank-encode-wiki-links "encode wiki links")
+  ("f" ej/yank-title-as-filename "as filename")
+  ("l" ej/yank-link-to-wiki "org-link to wiki")
+  ("p" ej/yank-python-onelinefy "Python onelinefy")
+  ("<ESC>" nil "exit"))
+(global-set-key (kbd "C-s-y") 'ej/hydra-yank/body)
+#+end_src
+** hydra: org/latex inserters
+#+begin_src emacs-lisp
+(defun env-inserter (env is-org)
+  (let (
+      (start-fmt (if is-org "#+begin_%s\n" "\\begin{%s}\n"))
+      (end-fmt (if is-org "\n#+end_%s\n" "\n\\end{%s}\n")))
+    (insert (format start-fmt env))
+    (save-excursion (insert (format end-fmt env)))))
+
+(defhydra ej/org-insert-env (:foreign-keys warn :columns 1 :exit t)
+  "Insert..."
+  ("p" (env-inserter "proof" t) "proof")
+  ("t" (env-inserter "theorem" t) "theorem")
+  ("d" (env-inserter "definition" t) "definition")
+  ("l" (env-inserter "lemma" t) "lemma")
+  ("s" (env-inserter "statement" t) "statement")
+  ("e" (env-inserter "equation*" nil) "equation*")
+  ("p" (env-inserter "proof" t) "proof")
+  ("c" (env-inserter "corollary" t) "corollary")
+  ("w" (env-inserter "wtf" t) "wtf")
+  ("<ESC>" nil "quit")
+)
+
+(defun ins-helper (before after)
+  (interactive)
+  (insert before)
+  (save-excursion (insert after)))
+
+(defun ins-env (env)
+  (interactive)
+  (let (
+      (start (format "\\begin{%s}\n  " env))
+      (end (format "\n\\end{%s}" env)))
+    (ins-helper start end)))
+
+(defhydra ej/tex-insert-env (:foreign-keys warn :columns 1 :exit t)
+  "Insert..."
+  ("n" (ins-helper "\\begin{enumerate}\n  \\item " "\n\\end{enumerate}") "num-list (enumerate)")
+  ("l" (ins-helper "\\begin{itemize}\n  \\item " "\n\\end{itemize}") "list (itemize)")
+  ("L" (ins-env "lemma") "lemma")
+  ("b" (ins-helper "\\textbf{" "}") "bold")
+  ("c" (ins-env "corollary") "corollary")
+  ("i" (ins-helper "\\textit{" "}") "italic (textit)")
+  ("d" (ins-env "definition") "definition")
+  ("x" (ins-env "example") "example")
+  ("X" (ins-env "examples") "examples")
+  ("e" (ins-env "equation") "equation")
+  ("E" (ins-env "exercise") "equation")
+  ("r" (ins-env "remark") "remark")
+  ("s" (ins-env "statement") "statement")
+  ("p" (ins-env "proof") "proof")
+  ("P" (ins-env "proposition") "proposition")
+  ("t" (ins-helper "\\[ \\begin{tikzcd}\n" "\n\\end{tikzcd} \\]") "tikzcd")
+  ("T" (ins-env "theorem") "theorem")
+  ("o" (insert "^{op}") "^{op}")
+  ("m" (insert "^{-1}") "^{-1}")
+  ("D" (insert "\\cD") "\\cD")
+  ("C" (insert "\\cC") "\\cC")
+  ("u" (ins-helper "\\url{" "}"))
+  ("<ESC>" nil "quit")
+)
+#+end_src
+** hydra: latex expansions
+#+begin_src emacs-lisp
+(defun ej/tex-expand-sequence ()
+  (interactive)
+  (let* ((pos (point))
+         (_ (re-search-backward "_[01]"))
+         (end (point))
+         (_ (backward-sexp))
+         (item (buffer-substring-no-properties (point) end))
+         (_ (message "your item: %s" item))
+         (_ (goto-char pos)))
+    (insert (format ", \\dots, %s_" item))))
+
+(setq ej/latex-headers
+      (if (ej/file-exists-p latex-headers-file)
+          (vc--read-lines latex-headers-file) '()))
+
+(defun ej/add-def (header)
+  (save-excursion
+    (search-backward "#+LATEX_HEADER:")
+    (end-of-line 1)
+    (newline)
+    (insert header))
+  (message "added header: %s" header))
+
+(defun ej/introduce-latex-def ()
+  (interactive)
+  (helm
+   :sources  (helm-build-sync-source "Add LATEX-HEADER"
+               :candidates ej/latex-headers
+               :action 'ej/add-def
+               :fuzzy-match t)
+   :buffer "*helm suggestion latex header*"))
+
+(defun ej/sat-latexify-0 (formula)
+  (let ((replaces '(("or" "\\\\lor")
+                    ("and" "\\\\land")
+                    ("not(\\(.\\))" "\\\\ov{\\1}"))))
+    (--reduce-from (s-replace-regexp (car it) (cadr it) acc) formula replaces)))
+
+(defun ej/sat-latexify ()
+  " converts formulas to texified formulas:
+  'x and (z or not(x))' >> 'x \\land (z \\lor \\ov{x})' "
+  (interactive)
+  (search-backward "\\(")
+  (forward-char 3)
+  (let* ((start (point))
+         (_ (end-of-line))
+         (end (point))
+         (_ (kill-region start end))
+         (latexified (ej/sat-latexify-0 (last-killed))))
+    (insert latexified)))
+
+(defhydra ej/hydra-org (:foreign-keys warn :columns 1 :exit t)
+  " Org LaTeX helpers "
+  ("e" ej/tex-expand-sequence "expand tex sequence")
+  ("h" ej/introduce-latex-def "introduce latex header")
+  ("s" ej/sat-latexify "latexify SAT formula")
+  ("r" ej/remove-last-ltximg-latex-preview "Remove last preview")
+  ("R" (ej/remove-last-ltximg-latex-preview 16) "Remove last 16 previews")
+  ("<ESC>" nil "exit"))
+
+;; (ej/hydra-org/body)
+(global-set-key (kbd "C-s-u") 'ej/hydra-org/body)
+#+end_src
+** nav-nav
+Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
+#+begin_src emacs-lisp
+(defun ej/configure-nav-nav ()
+  (setq nav-nav-is-switch-layout t)
+  (setq nav-nav-file nav-items-file)
+  (global-set-key (kbd "s-s") 'nav-nav))
+;; todo is it possible choose load-path or quelpa inside use-package?
+;; todo is it possible choose load-path or quelpa inside use-package?
+(if (ej/file-exists-p nav-nav-dir)
+    (use-package nav-nav
+      :after (hydra)
+      :load-path nav-nav-dir
+      :config (ej/configure-nav-nav))
+  (use-package nav-nav
+      :after (hydra)
+      :quelpa (nav-nav :fetcher git :url "https://github.com/evjava/nav-nav.git")
+      :config (ej/configure-nav-nav)))
+#+end_src
+* ORG configuration
+** base org config
+#+begin_src emacs-lisp
+(use-package auctex
+  :defer t)
+
+(setq org-export-coding-system 'utf-8)
+(setq calendar-week-start-day 1)
+(setq org-log-done nil)
+(setq org-image-actual-width '(200))
+(setq org-preview-latex-image-directory (concat org-latex-preview-dir "/"))
+
+(global-set-key (kbd "C-c c") 'org-capture)
+#+end_src
+** org-plus-contrib
+#+begin_src emacs-lisp
+(use-package org
+  :ensure org-plus-contrib
+  :pin org)
+#+end_src
+** bindings
+#+begin_src emacs-lisp
+(defun ej/org-hook ()
+  (local-set-key (kbd "s-t") 'visual-line-mode)
+  (local-set-key (kbd "<C-return>") 'ej/add-line-item)
+  (local-set-key (kbd "<C-S-return>") 'ej/add-line-item-reverse)
+  (local-set-key (kbd "C-x w") 'ej/wrap-src)
+  (local-set-key (kbd "C-s-n") 'ej/new-note)
+
+  ;; cdlatex
+  (define-key org-cdlatex-mode-map "_" nil)
+  (define-key org-cdlatex-mode-map "^" nil)
+  (define-key org-cdlatex-mode-map "'" nil)
+  (define-key org-cdlatex-mode-map "`" nil)
+
+  (local-set-key (kbd "C-M-x") 'eval-defun)
+  (local-set-key (kbd "C-M-x") 'eval-defun)
+
+  (local-set-key (kbd "s-j") 'org-latex-preview)
+
+  ;; don't need margins after new-line
+  (electric-indent-mode -1)
+  (visual-line-mode 1)
+)
+(add-hook 'org-mode-hook 'ej/org-hook)
+#+end_src
+** org-ref
+#+begin_src emacs-lisp
+(defun ej/bib-pref (file) 
+  (expand-file-name file bibliography-dir))
+(setq reftex-default-bibliography (ej/bib-pref "references.bib"))
+
+;; see org-ref for use of these variables
+(setq org-ref-bibliography-notes (ej/bib-pref "notes.org")
+      org-ref-default-bibliography reftex-default-bibliography
+      org-ref-pdf-directory (ej/bib-pref "bibtex-pdfs")
+      bibtex-completion-bibliography reftex-default-bibliography
+      bibtex-completion-library-path (ej/bib-pref "bibtex-pdfs")
+      bibtex-completion-notes-path (ej/bib-pref "helm-bibtex-notes")
+)
+
+;; open pdf with system pdf viewer (works on mac)
+;; todo fix
+(setq bibtex-completion-pdf-open-function
+  (lambda (fpath)
+    (start-process "open" "*open*" "open" fpath)))
+
+(use-package org-ref
+  :defer t
+  :config
+  (require 'org-ref-pdf)
+  (require 'org-ref-url-utils)
+  (require 'org-id)
+  (require 'org-ref-wos)
+  (require 'org-ref-scopus)
+  (require 'org-ref-pubmed)
+)
+
+(setq bibtex-dialect 'biblatex)
+(require 'ox-bibtex)
+(require 'helm-bibtex)
+#+end_src
+** latex export
+#+begin_src emacs-lisp
+(setq org-latex-hyperref-template "\\hypersetup{
+ pdfauthor={%a},
+ pdftitle={%t},
+ pdfkeywords={%k},
+ pdfsubject={%d},
+ pdfcreator={%c}, 
+ pdflang={%L},
+ colorlinks=true,
+ linkcolor=blue,
+ linkbordercolor=red,
+ urlbordercolor=cyan
+}
+")
+
+
+(setq org-latex-pdf-process
+      '("pdflatex -interaction nonstopmode -output-directory %o %f"
+        "bibtex %b"
+        "pdflatex -interaction nonstopmode -output-directory %o %f"
+        "pdflatex -interaction nonstopmode -output-directory %o %f"))
+
+(global-set-key (kbd "<f11>") 'org-latex-export-to-pdf)
+(defun ej/toggle-bind-f11-export-to-beamer ()
+  " TODO: if #+BEAMER_THEME in document, export to beamer "
+  (interactive)
+  (let ((fun (if (eq 'org-latex-export-to-pdf (key-binding (kbd "<f11>")))
+               'org-beamer-export-to-pdf
+               org-latex-export-to-pdf)))
+    (message "switching export to %s." fun)
+    (global-set-key (kbd "<f11>") 'org-beamer-export-to-pdf)))
+#+end_src
+** xelatex
+#+begin_src emacs-lisp
+(defun ej/activate-xelatex ()
+  (interactive)
+  (setq org-latex-to-pdf-process
+        '("xelatex -interaction nonstopmode %f"
+          "xelatex -interaction nonstopmode %f"))
+  (setq org-latex-pdf-process
+        '("xelatex -shell-escape -interaction nonstopmode -output-directory %o %f" ))
+  (setq org-latex-compiler "xelatex"))
+;; (ej/activate-xelatex)
+#+end_src
+** minted (python code export)
+<<minted-config>>
+http://joonro.github.io/blog/posts/org-mode-outputdir-minted-latex-export/
+
+Also I add this to document:
+- #+LATEX_HEADER: \\usemintedstyle{default}
+- #+LATEX_HEADER: \\setminted{fontsize=\\small}
+
+#+begin_src emacs-lisp
+(add-to-list 'org-latex-packages-alist '("" "listingsutf8"))
+
+(defun ej/activate-minted ()
+  (interactive)
+  (require 'ox-latex)
+  (add-to-list 'org-latex-packages-alist '("" "minted"))
+  (add-to-list 'org-latex-minted-langs '(python "python"))
+  (setq org-latex-listings 'minted)
+  (setq org-latex-pdf-process
+    '("pdflatex -shell-escape -interaction nonstopmode -output-directory %o %f"
+      "pdflatex -shell-escape -interaction nonstopmode -output-directory %o %f"
+      "pdflatex -shell-escape -interaction nonstopmode -output-directory %o %f"))
+  
+  ;; don't sure next 2 lines needed
+  (setq org-src-preserve-indentation t)
+  (setq org-latex-minted-options '(("tabsize" "2")))
+  ;; (setq org-latex-minted-options '(("obeytabs" "true")))
+
+  ;; don't work :(
+  ;; (let ((minted-extra "\n\\usemintedstyle{default}\n\\setminted{fontsize=\\small}"))
+  ;;  (setq org-format-latex-header (concat org-format-latex-header minted-extra)))
+)
+;; (ej/activate-minted)
+#+end_src
+** cdlatex
+#+begin_src emacs-lisp
+(use-package cdlatex
+  :config
+  (add-hook 'org-mode-hook 'turn-on-org-cdlatex))
+#+end_src
+** latex
+#+begin_src emacs-lisp
+(setq org-export-html-postamble nil)
+(setq org-html-postamble-format nil)
+(setq org-html-postamble nil)
+#+end_src
+** org-agenda
+#+begin_src emacs-lisp
+;;;; 
+(define-key global-map "\C-cl" 'org-store-link)
+(define-key global-map "\C-ca" 'org-agenda)
+(setq org-log-done t)
+(setq org-agenda-window-setup 'current-window)
+(setq org-agenda-skip-scheduled-if-done t)
+#+end_src
+** babel
+#+begin_src emacs-lisp
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((C . t)
+   (gnuplot . t)
+   (python . t)
+   (emacs-lisp . t)
+   (R . t)
+   (latex . t)
+   (org . t)
+   ))
+
+(defun ej/disable-confirm-babel-evaluate ()
+  (interactive)
+  (setq org-confirm-babel-evaluate nil))
+#+end_src
+** preview
+#+begin_src emacs-lisp
+(add-to-list 'org-latex-packages-alist '("" "tikz" t))
+(eval-after-load "preview"
+  '(add-to-list 'preview-default-preamble "\\PreviewEnvironment{tikzpicture}" t))
+; (setq org-preview-latex-default-process 'imagemagick)
+(setq org-preview-latex-default-process 'dvipng)
+(defun ej/switch-preview-latex-default-process ()
+  (interactive)
+  (setq org-preview-latex-default-process 
+    (if (eq org-preview-latex-default-process 'dvipng) 'imagemagick 'dvipng))
+  (message (format "updated org-preview-latex: %s" org-preview-latex-default-process)))
+
+(defun ej/refresh-latex-preview ()
+  (interactive)
+  (delete-directory org-latex-preview-dir t t))
+
+(defun update-org-latex-fragments ()
+  (org-toggle-latex-fragment '(16))
+  (plist-put org-format-latex-options :scale text-scale-mode-amount)
+  (org-toggle-latex-fragment '(16)))
+(add-hook 'text-scale-mode-hook 'update-org-latex-fragments)
+
+(defun ej/fix-org-format-options-scale()
+  (interactive)
+  (setq org-format-latex-options (plist-put org-format-latex-options :scale 2.0)))
+(ej/fix-org-format-options-scale)
+#+end_src
+** preview: deleting
+#+begin_src emacs-lisp
+(defun ej/delete-latex-previews ()
+  (interactive)
+  (delete-directory org-preview-latex-image-directory t))
+
+(defun remove-top-files (dir files count)
+  (let* ((sub-files (-slice files 0 (min count (length files)))))
+    (--map (delete-file (expand-file-name it dir)) sub-files)))
+
+(setq fregexp "^\\([^.]\\|\\.[^.]\\|\\.\\..\\)")
+(defun get-files-sorted-by-update (dir)
+  (let ((files (sort (directory-files-and-attributes dir nil fregexp)
+    #'(lambda (x y) (not (time-less-p (nth 6 x) (nth 6 y)))))))
+    (--map (car it) files)))
+
+(defun remove-last-files (dir count)
+  (remove-top-files dir (get-files-sorted-by-update dir) count))
+
+(defun ej/remove-last-ltximg-latex-preview (&optional mode)
+  (interactive "p")
+  (message (format "mode::::::: %d" mode))
+  (let ((cnt (cadr (assoc mode '((nil 1) (1 1) (4 4) (16 16))))))
+    (remove-last-files (concat org-latex-preview-dir "/") cnt)
+    (message (format "removed %d files" cnt)))
+  t)
+#+end_src
+
+** latex inserter helper
+#+begin_src emacs-lisp
+(setq var-change-layout nil)
+(defun ej/insert-latex-section ()
+  (interactive)
+  (if (not (or (bolp) (eq (preceding-char) ?\s)))
+      (insert " "))
+  (let ((outside (null (org-inside-LaTeX-fragment-p))))
+    (insert (if outside "\\( " "\\)"))
+    (when (or (and outside (ej/is-current-layout-ru)) (and (not outside) var-change-layout))
+      (setq var-change-layout (not var-change-layout))
+      (ej/switch-layout))))
+
+(defun ej/is-current-layout-ru ()
+  (interactive)
+  (equal (shell-command-to-string "xkblayout-state print %s") "ru"))
+(defun ej/switch-layout ()
+  (shell-command-to-string "xkblayout-state set +1"))
+
+(define-key global-map (kbd "C-s-j") 'ej/insert-latex-section)
+#+end_src
+** org-latex-classes
+#+begin_src emacs-lisp
+(unless (boundp 'org-latex-classes)
+  (setq org-latex-classes nil))
+
+(add-to-list 'org-latex-classes
+                '("report"
+                  "\\documentclass{report}"
+                  ("\\chapter{%s}" . "\\chapter*{%s}")
+                  ("\\section{%s}" . "\\section*{%s}")
+                  ("\\subsection{%s}" . "\\subsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
+                '("compact-report"
+               "\\documentclass[a4paper,11pt]{extarticle}"
+                  ("\\subsection{%s}" . "\\section*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
+               '("beamer"
+                 "\\documentclass[presentation]{beamer}"
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
+             '("article"
+               "\\documentclass{article}"
+               ("\\section{%s}" . "\\section*{%s}")))
+
+(add-to-list 'org-latex-classes
+                '("springer-article"
+                  "\\documentclass[runningheads]{llncs}"
+                  ("\\section{%s}" . "\\section*{%s}")
+                  ("\\nosubsection{%s}" . "\\nosubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
+             '("extarticle"
+               "\\documentclass[a4paper,14pt]{extarticle}"
+               ("\\section{%s}" . "\\section*{%s}")))
+
+(add-to-list 'org-latex-classes
+             '("extarticle2"
+               "\\documentclass[a4paper,14pt]{extarticle}"
+                  ("\\subsection{%s}" . "\\section*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
+             '("extarticle3"
+               "\\documentclass[a4paper,14pt]{extarticle}"
+                  ("\\section{%s}" . "\\section*{%s}")
+                  ("\\subsection{%s}" . "\\subsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
+             '("extarticle4"
+               "\\documentclass[a4paper,14pt]{extarticle}"
+                  ("\\section{%s}" . "\\section*{%s}")
+                  ("\\subsection{%s}" . "\\subsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
+             '("diplom"
+               "\\documentclass[a4paper,14pt,fleqn]{extreport}"
+               ;; "\\documentclass[a4paper,12pt,fleqn]{article}"
+               ("\\section{%s}" . "\\section*{%s}")))
+
+(add-to-list 'org-latex-classes
+             '("diplom2"
+               "\\documentclass[a4paper,14pt,fleqn]{extreport}"
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ))
+
+(add-to-list 'org-latex-classes
+             '("diplom3"
+               "\\documentclass[a4paper,14pt,fleqn]{extreport}"
+               ("\\chapter{%s}" . "\\chapter*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ))
+
+(add-to-list 'org-latex-classes
+             '("book"
+               "\\documentclass{book}"
+               ("\\part{%s}" . "\\part*{%s}")
+               ("\\chapter{%s}" . "\\chapter*{%s}")
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+#+end_src
+** custom org to html
+#+begin_src emacs-lisp
+(defun ej/toggle-org-html-export-on-save ()
+  " https://www.reddit.com/r/emacs/comments/4golh1/how_to_auto_export_html_when_saving_in_orgmode/ "
+  (interactive)
+  (if (memq 'org-html-export-to-html after-save-hook)
+      (progn
+        (remove-hook 'after-save-hook 'org-html-export-to-html t)
+        (message "Disabled org html export on save for current buffer..."))
+    (add-hook 'after-save-hook 'org-html-export-to-html nil t)
+    (message "Enabled org html export on save for current buffer...")))
+
+(defun ej/org-inline-css-hook (exporter)
+  "Insert custom inline css"
+  (when (eq exporter 'html)
+    (let* ((dir (ignore-errors (file-name-directory (buffer-file-name))))
+           (path (concat dir "style.css"))
+           (homestyle (or (null dir) (null (file-exists-p path))))
+           (final (if homestyle org-html-export-css-file path))) ;; <- set your own style file path
+      (setq org-html-head-include-default-style nil)
+      ; (message (format "org html head: %s" org-html-head))
+      
+      (setq org-html-head (concat
+                           "<style type=\"text/css\">\n"
+                           "<!--/*--><![CDATA[/*><!--*/\n"
+                           (with-temp-buffer
+                             (insert-file-contents final)
+                             (buffer-string))
+                           "/*]]>*/-->\n"
+                           "</style>\n")))))
+
+(defun ej/toggle-org-pdf-export-on-save ()
+  " https://www.reddit.com/r/emacs/comments/4golh1/how_to_auto_export_html_when_saving_in_orgmode/ "
+  (interactive)
+  (if (memq 'org-latex-export-to-pdf after-save-hook)
+      (progn
+        (remove-hook 'after-save-hook 'org-latex-export-to-pdf t)
+        (message "Disabled org html export on save for current buffer..."))
+    (add-hook 'after-save-hook 'org-latex-export-to-pdf nil t)
+    (message "Enabled org html export on save for current buffer...")))
+
+(add-hook 'org-export-before-processing-hook 'ej/org-inline-css-hook)
+#+end_src
+** org add line item
+<<org-add-line-item>>
+Simplifies filling of (nested) checklist.
+- type something, press "C-RET"
+- to appear here
+- press "C-u C-RET"
+  - to appear here
+  - press "C-S-RET"
+- to apper here
+#+begin_src emacs-lisp
+(defun ej/add-line-item-helper (is-sub indent-pow-4)
+  (let* ((CHAR-NUMBER (string-to-char " "))
+         (CHAR-MULT 2)
+         (current-line (buffer-substring-no-properties (line-beginning-position) (point)))
+         (has-box (or (cl-search "[X]" current-line) (cl-search "[ ]" current-line)))
+         (beg-of-line (line-beginning-position))
+         (indent-level (- (save-excursion (back-to-indentation) (point)) beg-of-line)))
+    (newline)
+    (insert-char ?\s indent-level)
+    (let* ((base-indent (* CHAR-MULT (truncate (log indent-pow-4 4))))
+           (indent (if is-sub base-indent (+ CHAR-MULT base-indent))))
+      (if is-sub
+          (insert-char CHAR-NUMBER indent)
+        (backward-delete-char-untabify indent)))
+    (insert (if (not has-box) "- " "- [ ] "))))
+
+(defun ej/add-line-item (&optional mode)
+  (interactive "p")
+  (ej/add-line-item-helper t mode))
+
+(defun ej/add-line-item-reverse (&optional mode)
+  (interactive "p")
+  (ej/add-line-item-helper nil mode))
+#+end_src
+** org functions
+#+begin_src emacs-lisp
+(defun ej/tbl-export (name)
+  "Search for table named `NAME` and export."
+  (interactive "s")
+  (outline-show-all)
+  (let ((case-fold-search t))
+    (if (search-forward-regexp (concat "#\\+NAME: +" name) nil t)
+    (progn
+      (next-line)
+      (org-table-export (format "%s.csv" name) "orgtbl-to-csv")))))
+
+;; ej/copy-cell
+(fset 'ej/copy-cell [?\M-a ?\C-  ?\M-e ?\M-w tab])
+(global-set-key (kbd "<C-f2>") 'ej/copy-cell)
+
+(defun ej/wrap-src (language)
+  (interactive "sWhich language? (default: [emacs-lisp]) ")
+  (let ((point-a (point))
+        (lang (if (empty language) "emacs-lisp" language))
+    )
+    (exchange-point-and-mark)
+    (let ((point-b (point)))
+      (kill-region point-a point-b)
+      (insert (format "#+begin_src %s\n" lang))
+      (yank)
+      (if (not (eq (current-column) 0))
+          (insert "\n"))
+      (insert "#+end_src\n"))))
+
+(defun ej/new-note (mode)
+  "insert note header, time: 29.11.18-14:46:07"
+  (interactive "p")
+  ;; todo assert org
+  (beginning-of-buffer)
+  (while (looking-at "[\n#]")
+    (end-of-line)
+    (forward-char))
+  (insert "\n")
+  (previous-line)
+  (insert "** log\n")
+  (ej/insert-time 4)
+  (insert (cond ((eq mode 1) "\ntags: ")
+                ((eq mode 4) "\ntitle: ")
+                (t "\n"))))
+
+(defun ej/insert-kotlin-before-after ()
+  (interactive)
+  (insert "\n*** before\n#+begin_src kotlin\n\n#+end_src\n*** after\n#+begin_src kotlin\n\n#+end_src"))
+#+end_src
+** org-image
+#+begin_src emacs-lisp
+(defun ej/async-shell-command-no-window (command)
+  (let ((display-buffer-alist 
+         (list (cons 
+                "\\*Async Shell Command\\*.*"
+                (cons #'display-buffer-no-window nil)))))
+    (async-shell-command command)))
+
+(setq CLIP-CMD-FMT "xclip -selection clipboard -t TARGETS -o | grep image/png && xclip -selection clipboard -t image/png -o > %s")
+(defun ej/org-clip-to-file (&optional arg)
+  (interactive)
+  (if t ;; (s-contains? "image/png" (shell-command ))
+      (let* ((dir (file-name-directory (buffer-file-name)))
+             (_ (message "all files: %s" (directory-files (concat dir "./images/") nil nil)))
+             (files (directory-files (concat dir "./images/") nil ".png$"))
+             (files-cnt (length files))
+             (_ (message "files-cnt: %s\narg: %s" files-cnt arg))
+             (short-fname (if t ;; (equal arg 1)
+                        (let* ((new-fname-0 (format "screenshot-%0d.png" (1+ files-cnt))))
+                          (if (not (-contains? files new-fname-0))
+                              new-fname-0
+                            (s-replace new-fname-0 ".png" "--.png"))) nil))
+;;                          (concat (car (interactive "senter new image name: ")) ".png")))
+             (_ (message "short-fname: %s" short-fname))
+             (fname (concat "./images/" short-fname)))
+        (async-shell-command-no-window (format CLIP-CMD-FMT fname))
+        (if (eq major-mode 'org-mode)
+            (insert (format "[[file:%s]]" fname))
+          (progn
+            (message "Saved image to file: %s, saved to yank" fname)
+            (kill-new fname))))
+    (message "No image content in clipboard!")))
+#+end_src
+** format-time-string-patch
+https://kisaragi-hiu.com/blog/2019-10-09-format-time-string-today
+#+begin_src emacs-lisp
+(require 'calendar)
+(defun kisaragi/english-dow (&optional time zone abbreviated)
+  "Return ABBREVIATED name of the day of week at TIME and ZONE.
+
+If TIME or ZONE is nil, use `current-time' or `current-time-zone'."
+  (unless time (setq time (current-time)))
+  (unless zone (setq zone (current-time-zone)))
+  (calendar-day-name
+   (pcase-let ((`(,_ ,_ ,_ ,d ,m ,y . ,_)
+                (decode-time time zone)))
+     (list m d y))
+   abbreviated))
+
+(defun kisaragi/advice-format-time-string (func format &optional time zone)
+  "Pass FORMAT, TIME, and ZONE to FUNC.
+
+Replace \"%A\" in FORMAT with English day of week of today,
+\"%a\" with the abbreviated version."
+  (let* ((format (s-replace "%a" (kisaragi/english-dow time zone t) format))
+         (format (s-replace "%A" (kisaragi/english-dow time zone nil) format)))
+    (funcall func format time zone)))
+
+(advice-add 'format-time-string :around #'kisaragi/advice-format-time-string)
+#+end_src
+* Private config
+#+begin_src emacs-lisp
+(if (ej/file-exists-p priv-conf-file)
+    (org-babel-load-file priv-conf-file))
+#+end_src
+* DISABLED
+** org-fragtog
+Automates preview of LaTeX fragments (text shown when point on preview)
+
+Kinda buggy. Also bad previews sometimes.
+#+begin_src emacs-lisp :tangle no
+(use-package org-fragtog
+  :config
+  (add-hook 'org-mode-hook 'org-fragtog-mode))
+#+end_src
+** esup
+Profile the startup time of Emacs in the background.
+#+begin_src emacs-lisp :tangle no
+(use-package esup
+  :ensure t
+  ;; To use MELPA Stable use ":pin melpa-stable",
+  :commands (esup))
+(setq esup-depth 0)
+#+end_src
+** org-latex-preview via lua
+#+begin_src emacs-lisp :tangle no
+(setq luamagick '(luamagick :programs ("lualatex" "convert")
+       :description "pdf > png"
+       :message "you need to install lualatex and imagemagick."
+       :use-xcolor t
+       :image-input-type "pdf"
+       :image-output-type "png"
+       :image-size-adjust (1.0 . 1.0)
+       :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+       :image-converter ("convert -density %D -trim -antialias %f -quality 100 %O")))
+
+(add-to-list 'org-preview-latex-process-alist luamagick)
+
+(setq org-preview-latex-default-process 'luamagick)
+#+end_src
+** showing timestamp in *Messages*
+#+begin_src emacs-lisp :tangle no
+
+;;  https://emacs.stackexchange.com/questions/32150/how-to-add-a-timestamp-to-each-entry-in-emacs-messages-buffer
+
+(defun sh/current-time-microseconds ()
+  "Return the current time formatted to include microseconds."
+  (let* ((nowtime (current-time))
+         (now-ms (nth 2 nowtime)))
+    ; (concat (format-time-string "[%Y-%m-%dT%H:%M" nowtime) (format ".%d]" now-ms))))
+    (format-time-string "[%Y-%m-%dT%H:%M" nowtime)))
+
+(defun sh/ad-timestamp-message (FORMAT-STRING &rest args)
+  "Advice to run before `message' that prepends a timestamp to each message.
+
+Activate this advice with:
+(advice-add 'message :before 'sh/ad-timestamp-message)"
+  (unless (string-equal FORMAT-STRING "%s%s")
+    (let ((deactivate-mark nil)
+          (inhibit-read-only t))
+      (with-current-buffer "*Messages*"
+        (goto-char (point-max))
+        (if (not (bolp))
+          (newline))
+        (insert (sh/current-time-microseconds) " ")))))
+
+; (advice-add 'message :before 'sh/ad-timestamp-message)
+#+end_src
+** org-roam                                                        :DISABLED:
+#+begin_src emacs-lisp :tangle no
+(use-package org-roam
+  :hook 
+  (after-init . org-roam-mode)
+  :config
+  (setq org-roam-directory org-roam-dir)
+  (:bind (:map org-roam-mode-map
+               ("C-c n l" . 'org-roam)
+               ("C-c n l" . 'org-roam)
+               ("C-c n f" . 'org-roam-find-file)
+               ("C-c n b" . 'org-roam-switch-to-buffer)
+               ("C-c n g" . 'org-roam-graph-show)
+               :map org-mode-map 
+               ("C-c n i" . 'org-roam-insert))))
+#+end_src
+** hydra insert time
+#+begin_src emacs-lisp :tangle no
+(setq TIME-FORMATS-2
+      (cl-flet ((patch-16 (e) (if (eq (car e) 16) `("w" ,(cadr e)) e)))
+        (--map (patch-16 it) TIME-FORMATS)))
+
+(defun ej/ins-time ()
+  (interactive)
+  (let ((sexp (mapcar (lambda (f)
+                        (let ((key (car f)) (time (format-time-string (cadr f))))
+                          (list (format "\t\t%s" key) `(insert ,time) time))) TIME-FORMATS-2)))
+    (call-interactively (eval
+                         `(defhydra hydra-ins-time (:exit t :columns 1 :foreign-keys warn)
+                            "Hydra insert time"
+                            ,@sexp
+                            ("\t\tq" nil "quit"))))))
+
+(ej/ins-time)
+#+end_src
+** fb2
+#+begin_src emacs-lisp :tangle no
+(defun fb2-mode-view()
+  (vc-toggle-read-only)
+  (interactive)
+  (sgml-mode)
+  (sgml-tags-invisible 0))
+ 
+(defun fb2-mode-edit()
+  (vc-toggle-read-only nil)
+  (interactive)
+  (sgml-mode)
+  (sgml-tags-invisible 0))
+
+(add-to-list 'auto-mode-alist '(".fb2$" . fb2-mode-view))
+#+end_src
+** delete current file
+#+begin_src emacs-lisp :tangle no
+(defun xah-delete-current-file (&optional @no-backup-p)
+  "Delete current buffer/file.
+   If buffer is a file, makes a backup~, else, push file content to `kill-ring'.
+   
+   If buffer is dired, go up a dir and mark it for delete  (by `dired-flag-file-deletion').
+    (press 【x】 to call `dired-do-flagged-delete'  to actually delete it)
+   
+   This commands calls `xah-delete-current-file-make-backup' or
+    `xah-delete-current-file-copy-to-kill-ring'.
+   
+   If next buffer is dired, refresh it.
+   
+   URL `http://ergoemacs.org/emacs/elisp_delete-current-file.html'
+   Version 2017-08-27"
+  (interactive "P")
+  (if (eq major-mode 'dired-mode)
+      (progn (dired-up-directory)
+             (dired-flag-file-deletion 1)
+             (revert-buffer))
+    (progn
+      (if (buffer-file-name)
+          (xah-delete-current-file-make-backup @no-backup-p)
+        (xah-delete-current-file-copy-to-kill-ring)))
+    (when (eq major-mode 'dired-mode)
+      (revert-buffer))))
+#+end_src
+** all-the-icons
+#+begin_src emacs-lisp :tangle no
+(use-package all-the-icons-dired
+  :config
+  (add-hook 'dired-mode-hook 'all-the-icons-dired-mode))
+#+end_src
+** toc-org
+#+begin_src emacs-lisp :tangle no
+(use-package toc-org
+  :config
+  ; (add-hook 'markdown-mode-hook 'toc-org-mode)
+  ; (define-key (null markdown-mode-map) (kbd "\C-c\C-o") 'toc-org-markdown-follow-thing-at-point)
+)
+  
+; (if (require 'toc-org nil t)
+;     (add-hook 'org-mode-hook 'toc-org-mode)
+; 
+;     ;; enable in markdown, too
+;     (add-hook 'markdown-mode-hook 'toc-org-mode)
+;     (define-key markdown-mode-map (kbd "\C-c\C-o") 'toc-org-markdown-follow-thing-at-point)
+;   (warn "toc-org not found"))
+#+end_src
