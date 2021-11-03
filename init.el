@@ -1,5 +1,5 @@
 ;;;; ----- base
-(setq gc-cons-threshold (* 2000 1024 1024))
+(setq gc-cons-threshold (* 4000 1024 1024))
 (defun ej/emacs-path (name) 
   (expand-file-name name user-emacs-directory))
 
