@@ -9,10 +9,11 @@
   - [[https://github.com/jwiegley/use-package][github: use-package]]
   - this file: [[calculator]], [[links-navigation]], [[time-inserter]], [[org-add-line-item]]
 - Remember ::
-  - =C-x z= - run last command
-  - =C-c '= - org-edit-src-code
-  - =M-:=   - eval-expression
-  - <M-RET> - update dir in shell
+  - =C-x z=   - run last command
+  - =C-c '=   - org-edit-src-code
+  - =M-:=     - eval-expression
+  - <M-RET>   - update dir in shell
+  - =apropos= - search docs
 * Early config
 ** Basic modules
 #+begin_src emacs-lisp
@@ -251,7 +252,7 @@
 (fset 'ej/open-current-directory [f3 ?\C-d])
 (global-set-key (kbd "s-i") 'dired-jump)
 
-(global-set-key (kbd "s-h") 'ej/copy-all)
+(global-set-key (kbd "C-c s-a") 'ej/copy-all)
 
 (fset 'ej/remove-previous-command
    [?\C-b ?\C-a ?\C-  ?\C-c ?\C-p ?\C-n ?\C-a ?\C-w ?\C-o ?. ?. ?. ?\C-f ?\C-e])
@@ -310,12 +311,13 @@
 ** Package: helm
 #+begin_src emacs-lisp
 (use-package helm
-  :bind (("C-c h" . 'helm-command-prefix)
+  :bind (("s-h" . 'helm-command-prefix)
          ("M-x" . 'helm-M-x)
          ("<f3>" . 'helm-find-files)
          ("s-b" . 'helm-mini)
          ("C-x C-r" . 'helm-recentf)
-         ("M-y" . 'helm-show-kill-ring))
+         ("M-y" . 'helm-show-kill-ring)
+         ("s-/" . helm-lisp-completion-at-point))
   :config
   (require 'helm-config)
   (helm-mode 1)
@@ -719,10 +721,11 @@ Works in Microsoft Windows, Mac OS X, Linux."
   :bind
   ; multiple-cursors
   ("C-S-c C-S-c" . 'mc/edit-lines)
+  ("C-S-c C-S-a" . 'mc/vertical-align-with-space)
   ("C->" . 'mc/mark-next-like-this)
   ("C-<" . 'mc/mark-previous-like-this)
   ("C-c C-<" . 'mc/mark-all-like-this)
-)
+  )
 #+end_src
 ** visual-regexp
 #+begin_src emacs-lisp
@@ -1540,13 +1543,14 @@ same directory as the org-buffer and insert a link to this file."
     (setq seq input-seq))
   (shell-command (concat  "chromium-browser \"https://www.google.ru/search?q=" seq "\" && wmctrl -a chromium-browser")))
 
-(defun ej/zap-to-char (arg char)
+(defun ej/anti-zap-to-char (arg char)
   "Zap to a character"
   (interactive "p\nc my Zap to char: ")
-  (setq begin (point))
-  (search-forward (char-to-string char))
+  (setq begin (point)) 
+  (re-search-forward (format "[^%c]" char))
   (backward-char 1)
   (kill-region begin (point)))
+(global-set-key (kbd "s-z") #'ej/anti-zap-to-char)
 
 (defun ej/saved-zap-to-char (arg char)
   "Zap to a character"
@@ -1812,7 +1816,8 @@ same directory as the org-buffer and insert a link to this file."
   (interactive "p")
   (let ((value (eval (elisp--preceding-sexp))))
     (if (eq mode 1) (kill-sexp -1))
-    (insert (format "%S" value))))
+    (save-excursion
+      (insert (format "%S" value)))))
 
 (defun ej/cur-sexp ()
   (interactive)
@@ -1869,25 +1874,18 @@ same directory as the org-buffer and insert a link to this file."
 
 (defun ej/defun-assign ()
   (interactive)
-  (let* ((sexp (ej/cur-sexp))
-         (_ (when (not (equal (car sexp) 'defun)) (error nil)))
-         (name (cadr sexp))
-         (args (caddr sexp))
-         (args/ (--map (intern (concat (symbol-name it) "/")) args))
-         (assignments (-flatten-n 1 (--map (list (car it) (cdr it)) (-zip args args/)))))
-    (ej/replace-last-sexp `(defun ,name (,@args/) (setq ,@assignments)))))
+  (let* ((sexp (read (thing-at-point 'sexp)))
+         (fun-def (symbol-function (car sexp)))
+         (fun-args (cl-remove '&optional (cadr fun-def)))
+         (assignments (->> (-zip-fill nil fun-args (cdr sexp))
+                           (mapcar #'-cons-to-list)
+                           (-flatten-n 1)))
+         (expr `(setq ,@assignments)))
+    (eval expr)
+    (message "evaluated: %s" expr)))
 
 (defun ej/s-prefix (str drop-last)
   (substring str 0 (- (length str) drop-last)))
-
-(defun ej/defun-deassign ()
-  (interactive)
-  (let* ((sexp (ej/cur-sexp))
-         (_ (when (not (equal (car sexp) 'defun)) (error nil)))
-         (name (cadr sexp))
-         (args/ (caddr sexp))
-         (args (--map (intern (ej/s-prefix (symbol-name it) 1)) args/)))
-    (ej/replace-last-sexp `(defun ,name (,@args)))))
 
 ; brg-util-test.el
 (defun ej/toggle-el-test ()
@@ -1899,8 +1897,32 @@ same directory as the org-buffer and insert a link to this file."
                     (s-replace ".el" "-test.el" bfn))))
     (switch-to-buffer bfn-new)))
 
-(defhydra ej/elisp-interactive (:columns 1 :foreign-keys warn :exit t)
+(defun ej/indent-and-next-line ()
+  (interactive)
+  (indent-for-tab-command)
+  (next-line 1))
+
+(defun ej/comment-and-next-line ()
+  (interactive)
+  (beginning-of-line 1)
+  (insert ";;")
+  (next-line 1))
+
+(defun ej/jump-go ()
+  (interactive)
+  (let* ((sexp (->> (thing-at-point 'sexp) (read))))
+    (cond
+     ((symbolp sexp) (dumb-jump-go))
+     ((consp sexp) (progn
+                     (backward-sexp 1)
+                     (forward-char 1)
+                     (forward-sexp 1)
+                     (dumb-jump-go)))
+     (t (error "not supported")))))
+
+(defhydra ej/elisp-interactive (:columns 4 :foreign-keys warn :exit t)
   "Emacs Lisp interactive stuff"
+  ("g" ej/jump-go "dumb-jump-go wrapper")
   ("r" ej/eval-replace "replace last sexp")
   ("s" ej/setq-last-sexp "setq last sexp")
   ("m" ej/message-last-sexp "message last sexp")
@@ -1909,14 +1931,15 @@ same directory as the org-buffer and insert a link to this file."
   ("k" ej/setq-killed "setq killed")
   ("w" ej/copy-sexp-at-point "copy last sexp")
   ("E" ej/eval-last-sexp-forward "eval last sexp and forward" :exit nil)
-  ("e" eros-eval-last-sexp "eval last sexp" :exit t)
+  (";" ej/comment-and-next-line "comment and next line" :exit nil)
+  ("e" eros-eval-last-sexp "eval last sexp")
   ("o" eval-buffer "eval-buffer")
   ("p" (ert t) "ert")
-  ("a" ej/defun-assign "make setq-assigner from defun")
-  ("A" ej/defun-deassign "unmake setq-assigner from defun")
+  ("a" ej/defun-assign "assign to arguments of defun")
   ("T" ej/toggle-el-test "toggle .el or -test.el")
+  ("TAB" ej/indent-and-next-line "Indent and next line" :exit nil)
   ("<ESC>" nil "exit")
-  ("C-n" (next-line) "exit" :exit t)
+  ("C-n" (next-line) "exit")
   )
 (global-set-key (kbd "s-l") 'ej/elisp-interactive/body)
 (global-set-key (kbd "M-s-t") 'transpose-sexps)
@@ -1930,7 +1953,7 @@ same directory as the org-buffer and insert a link to this file."
   (interactive)
   (let* ((url (car kill-ring))
          (command (format "wget -qO- %s |  gawk -v IGNORECASE=1 -v RS='</title' 'RT{gsub(/.*<title[^>]*>/,\"\");print;exit}'" url)))
-    (insert (shell-command-to-string command))))
+    (insert (s-trim (shell-command-to-string command)))))
 (defalias 'titlize 'ej/insert-title)
 
 (defun ej/yank-double-slashes ()
