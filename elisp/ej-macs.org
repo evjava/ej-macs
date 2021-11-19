@@ -258,7 +258,6 @@
    [?\C-b ?\C-a ?\C-  ?\C-c ?\C-p ?\C-n ?\C-a ?\C-w ?\C-o ?. ?. ?. ?\C-f ?\C-e])
 (global-set-key (kbd "C-c s-d") 'ej/remove-previous-command)
 
-(global-set-key (kbd "s-o") 'ej/insert-time)
 (global-set-key (kbd "s-c") 'ej/calculator-mode)
 
 (global-set-key (kbd "C-S-s-d") 'ej/go-to-dir-reflexia)
@@ -977,12 +976,12 @@ Works in Microsoft Windows, Mac OS X, Linux."
 
 (add-hook 'telega-chat-mode-hook 'ej/telega-chat-mode-emoji)
 #+end_src
-** ace-jump
+** nav jumping: avy
 #+begin_src emacs-lisp
-(use-package ace-jump-mode
+(use-package avy
   :config
-  (global-set-key (kbd "C-$") 'ace-jump-mode)
-  (global-set-key (kbd "C-;") 'ace-jump-mode))
+  (global-set-key (kbd "C-$") 'avy-goto-char)
+  (global-set-key (kbd "C-;") 'avy-goto-char))
 #+end_src
 ** winner
 #+begin_src emacs-lisp
@@ -1066,7 +1065,7 @@ Usage:
   (let* ((p (point))
          (s (- p (current-column)))
          (almost-expr (buffer-substring-no-properties p s))
-         (indexof (search SEARCH-START-CHARACTER almost-expr :start2 0))
+         (indexof (cl-search SEARCH-START-CHARACTER almost-expr :start2 0))
          (expr (if (null indexof) almost-expr (substring almost-expr (1+ indexof) (length almost-expr))))
          (balanced-expr (ej/balance expr))
          (bash-expr (format "r -e 'cat(%s)'" balanced-expr))
@@ -1202,30 +1201,46 @@ Simplifies navigation via links in buffer.
 Inserts time in different formats.
 #+begin_src emacs-lisp
 (setq TIME-FORMATS '(
-  (1 "%H:%M")
-  (2 "%d.%m.%y")
-  (3 "upd: %d.%m.%y-%H:%M:%S. ")
-  (4 "date: %d.%m.%y-%H:%M:%S")
-  (5 "%d.%m.%y-%H:%M")
-  (6 "%d.%m.%y-%H:%M:%S")
-  (7 "resolution(%d.%m.%y-%H:%M): ")
-  (8 "%H:%M:%S")
-  (9 "[%Y-%m-%d %a %H:%M]")
-  (16 "%d.%m.%y %a")
+  (1  . "%H:%M")
+  (2  . "%d.%m.%y")
+  (3  . "upd: %d.%m.%y-%H:%M:%S. ")
+  (4  . "date: %d.%m.%y-%H:%M:%S")
+  (5  . "%d.%m.%y-%H:%M")
+  (6  . "%d.%m.%y-%H:%M:%S")
+  (7  . "resolution(%d.%m.%y-%H:%M): ")
+  (8  . "%H:%M:%S")
+  (9  . "[%Y-%m-%d %a %H:%M]")
+  (10 . "%Y-%m-%d")
+  (16 . "%d.%m.%y %a")
   ))
 (setq TIME-FORMAT-DEFAULT "%H:%M")
 
 (defun ej/insert-time (&optional mode)
   (interactive "p")
-  (if (eq mode 0) 
-      (ej/ins-time)
-    (insert (ej/time mode))))
+  (if (eq mode 0)
+      (ej/insert-time-hydra)
+    (ej/insert-time-key mode)))
 
-; todo make also good-looking modes (for typing (ej/insert-time 'full-date))
-(defun ej/time (&optional mode)
+;; todo make also good-looking modes (for typing (ej/insert-time 'full-date))
+(defun ej/insert-time-key (&optional mode)
   (let* ((time-entry (assoc mode TIME-FORMATS))
-        (time-fmt (if (null time-entry) TIME-FORMAT-DEFAULT (cadr time-entry))))
-    (format-time-string time-fmt (current-time))))
+         (time-fmt (if (null time-entry) TIME-FORMAT-DEFAULT (cdr time-entry))))
+    (insert (format-time-string time-fmt (current-time)))))
+
+(defun ej/time-to-hydra-time (f)
+  (let ((key (car f))
+        (time (format-time-string (cdr f))))
+    (list (format "\t\t%s" key) `(insert ,time) time)))
+
+(defun ej/insert-time-hydra ()
+  (interactive)
+  (let* ((hydra-time-formats (cl-sublis '((10 . "a") (16 . "s")) TIME-FORMATS))
+         (sexp (-map #'ej/time-to-hydra-time hydra-time-formats)))
+    (call-interactively (eval
+                         `(defhydra hydra-insert-time (:exit t :columns 1 :foreign-keys warn)
+                            "Hydra insert time"
+                            ,@sexp
+                            ("\t\tq" nil "quit"))))))
 
 (global-set-key (kbd "s-o") 'ej/insert-time)
 #+end_src
@@ -1702,16 +1717,16 @@ same directory as the org-buffer and insert a link to this file."
   "todo write doc"
   (interactive "*r\nP")
   (save-excursion
-  (goto-char beg)
-  (setq translated-char nil)
-  (do () ((>= (point) end))
-    (setq translated-char (ej/punto-translate-char (char-after (point))))
-     (if (equal nil translated-char)
-        (forward-char 1)
-      (progn (delete-char 1)
-             (insert translated-char)))))
-  (unless (equal nil translated-char)
-  (forward-char 1)))
+    (goto-char beg)
+    (setq translated-char nil)
+    (while (<= (point) end)
+        (let* ((translated-char (ej/punto-translate-char (char-after (point)))))
+          (if (equal nil translated-char)
+              (forward-char 1)
+            (progn (delete-char 1)
+                   (insert translated-char)))))
+    (unless (equal nil translated-char)
+      (forward-char 1))))
     
 #+end_src
 ** python copy section
@@ -2007,7 +2022,7 @@ same directory as the org-buffer and insert a link to this file."
   ("<ESC>" nil "exit"))
 (global-set-key (kbd "C-s-y") 'ej/hydra-yank/body)
 #+end_src
-** hydra: org/latex inserters
+** hydra: org/latex inserters           :inserters:
 #+begin_src emacs-lisp
 (defun env-inserter (env is-org)
   (let (
@@ -2808,25 +2823,6 @@ Activate this advice with:
                ("C-c n g" . 'org-roam-graph-show)
                :map org-mode-map 
                ("C-c n i" . 'org-roam-insert))))
-#+end_src
-** hydra insert time
-#+begin_src emacs-lisp :tangle no
-(setq TIME-FORMATS-2
-      (cl-flet ((patch-16 (e) (if (eq (car e) 16) `("w" ,(cadr e)) e)))
-        (--map (patch-16 it) TIME-FORMATS)))
-
-(defun ej/ins-time ()
-  (interactive)
-  (let ((sexp (mapcar (lambda (f)
-                        (let ((key (car f)) (time (format-time-string (cadr f))))
-                          (list (format "\t\t%s" key) `(insert ,time) time))) TIME-FORMATS-2)))
-    (call-interactively (eval
-                         `(defhydra hydra-ins-time (:exit t :columns 1 :foreign-keys warn)
-                            "Hydra insert time"
-                            ,@sexp
-                            ("\t\tq" nil "quit"))))))
-
-(ej/ins-time)
 #+end_src
 ** fb2
 #+begin_src emacs-lisp :tangle no
