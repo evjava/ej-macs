@@ -1762,6 +1762,22 @@ same directory as the org-buffer and insert a link to this file."
           (next-line)))
       (other-window -1))))
 #+end_src
+** presentation mode
+#+begin_src emacs-lisp
+(setq default-mode-line-format mode-line-format)
+(setq default-frame-title-format frame-title-format)
+(setq is-presentation-mode nil)
+
+(defun ej/toggle-presentation-mode ()
+  (interactive)
+  (let* ((p-mode  (not is-presentation-mode))
+         (m-line  (if p-mode nil default-mode-line-format))
+         (f-title (if p-mode nil default-frame-title-format)))
+    (setq-default mode-line-format     m-line)
+    (setq         mode-line-format     m-line)
+    (setq         frame-title-format   f-title)
+    (setq         is-presentation-mode p-mode)))
+#+end_src
 * Hydra
 ** module
 #+begin_src emacs-lisp
@@ -1786,6 +1802,13 @@ same directory as the org-buffer and insert a link to this file."
   (other-window 1)
   (dired-jump))
 
+(defun ej/dired-in-other-window ()
+  (interactive)
+  (delete-other-windows)
+  (split-window-horizontally)
+  (other-window 1)
+  (dired-jump))
+
 (defhydra ej/hydra-buffers-windows (:foreign-keys warn :columns 1)
   " Hydra navigation stuff "
   ("1" telega "TELEGA" :exit t)
@@ -1805,6 +1828,7 @@ same directory as the org-buffer and insert a link to this file."
   ("P" (switch-to-buffer "*Python*") "*Python*" :exit t)
   ("l" (switch-to-buffer "*Org PDF LaTeX Output*") "*Org PDF LaTeX Output*" :exit t)
   ("L" (ej/remove-last-ltximg-latex-preview 1) "remove last latex" :exit t)
+  ("<f8>" ej/dired-in-other-window "Dired in other window" :exit t)
   ("<ESC>" nil "quit")
 )
 
@@ -2287,15 +2311,17 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
         "pdflatex -interaction nonstopmode -output-directory %o %f"
         "pdflatex -interaction nonstopmode -output-directory %o %f"))
 
-(global-set-key (kbd "<f11>") 'org-latex-export-to-pdf)
-(defun ej/toggle-bind-f11-export-to-beamer ()
-  " TODO: if #+BEAMER_THEME in document, export to beamer "
+(defun ej/export-to-pdf-or-beamer ()
   (interactive)
-  (let ((fun (if (eq 'org-latex-export-to-pdf (key-binding (kbd "<f11>")))
-               'org-beamer-export-to-pdf
-               org-latex-export-to-pdf)))
-    (message "switching export to %s." fun)
-    (global-set-key (kbd "<f11>") 'org-beamer-export-to-pdf)))
+  (let* ((is-slides (condition-case nil
+                        (save-excursion
+                          (beginning-of-buffer)
+                          (search-forward "\n#+BEAMER_THEME"))
+                      (error nil))))
+    (if is-slides
+        (org-beamer-export-to-pdf)
+      (org-beamer-export-to-pdf))))
+(define-key org-mode-map (kbd "<f11>") 'ej/export-to-pdf-or-beamer)
 #+end_src
 ** xelatex
 #+begin_src emacs-lisp
@@ -2739,6 +2765,13 @@ Replace \"%A\" in FORMAT with English day of week of today,
     (funcall func format time zone)))
 
 (advice-add 'format-time-string :around #'kisaragi/advice-format-time-string)
+#+end_src
+** org-download
+#+begin_src emacs-lisp
+(use-package org-download
+  :config
+  (add-hook 'dired-mode-hook 'org-download-enable)
+  )
 #+end_src
 * Private config
 #+begin_src emacs-lisp
