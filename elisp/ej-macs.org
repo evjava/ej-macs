@@ -8,12 +8,13 @@
   - [[../custom.el]]
   - [[https://github.com/jwiegley/use-package][github: use-package]]
   - this file: [[calculator]], [[links-navigation]], [[time-inserter]], [[org-add-line-item]]
-- Remember ::
+- Remember or discover ::
   - =C-x z=   - run last command
   - =C-c '=   - org-edit-src-code
   - =M-:=     - eval-expression
   - <M-RET>   - update dir in shell
   - =apropos= - search docs
+  - =org-download=
 * Early config
 ** Basic modules
 #+begin_src emacs-lisp
@@ -388,7 +389,11 @@
   :config
   (setenv "PAGER" "cat")
   (setq system-uses-terminfo nil)
-  (add-hook 'shell-mode-hook 'ansi-color-for-comint-mode-on))
+  (add-hook 'shell-mode-hook 'ansi-color-for-comint-mode-on)
+  (setq ansi-color-names-vector
+        ["black" "tomato" "PaleGreen2" "gold1"
+         "DeepSkyBlue1" "MediumOrchid1" "cyan" "white"]))
+
 #+end_src
 *** shortcuts
 #+begin_src emacs-lisp
@@ -466,66 +471,64 @@ Works in Microsoft Windows, Mac OS X, Linux."
        ((string-equal system-type "gnu/linux")
         (--map (let ((process-connection-type nil)) (start-process "" nil "xdg-open" it)) myFileList))))))
 
-; todo remove..
-(add-hook
- 'dired-load-hook
- (function
-  (lambda ()
-    (load "dired-x")
-    ;; Set dired-x variables here.
-    ;; To and flo...
-    (if window-system (require 'dired-dd)))))
+(defun ej/hook-dired-dd-loader ()
+  (load "dired-x")
+  (when window-system
+    (require 'dired-dd)
+    (require 'dired-dd-mew)
+    (require 'dired-dd-insert-fname)
+    (require 'dired-dd-insert-file)))
 
-(add-hook
- 'dired-load-hook
- (function
-  (lambda ()
-    (load "dired-x")
-    ;; Set dired-x variables here.
-    ;; To and flo...
-    (if window-system
-  (progn (require 'dired-dd)
-         (require 'dired-dd-mew)
-         (require 'dired-dd-insert-fname)
-         (require 'dired-dd-insert-file))))))
+(add-hook 'dired-load-hook 'ej/hook-dired-dd-loader)
 
-(add-hook 'dired-before-readin-hook 
-          (lambda ()
-            (when (file-remote-p default-directory)
-              (setq dired-actual-switches "-al"))))
+(defun ej/hook-remote-switches ()
+  (when (file-remote-p default-directory)
+    (setq dired-actual-switches "-al")))
 
-(setq tramp-default-method "ssh")
+(add-hook 'dired-before-readin-hook 'ej/hook-remote-switches)
 
 ; (setq dired-omit-files "\\`[.]?#\\|\\`[.][.]?\\'")
 (setq dired-omit-files (concat dired-omit-files "\\|\\.i$"))
 
 (use-package async
-    :custom
+    :config
     (dired-async-mode 0))
+
+;; tramp
+(setq tramp-default-method "ssh")
 #+end_src
 ** develop
+*** common
 #+begin_src emacs-lisp
-(setq org-babel-python-command python-dir)
-(setq python-shell-interpreter python-dir)
-
-(add-hook 'python-mode-hook
-  (lambda ()
-    (setq indent-tabs-mode nil)
-    (setq python-indent 4)
-    (setq tab-width 2)))
-
-(setq ansi-color-names-vector
-      ["black" "tomato" "PaleGreen2" "gold1"
-       "DeepSkyBlue1" "MediumOrchid1" "cyan" "white"])
-
 (setq-default c-basic-offset 2 c-default-style "linux")
 (setq-default tab-width 2 indent-tabs-mode t)
-
-(autoload 'js2-mode "js2" nil t)
 
 ;;; turn on syntax highlighting
 (global-font-lock-mode 1)
 
+(setq inferior-lisp-program "/usr/bin/clisp")
+
+;; for bash
+(add-to-list 'auto-mode-alist '("\.bash_aliases$" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\.bash_path$" . shell-script-mode))
+
+(add-to-list 'auto-mode-alist '("\.m$" . octave-mode))
+(add-to-list 'auto-mode-alist '("\.g4$" . antlr-mode))
+#+end_src
+*** python
+#+begin_src emacs-lisp
+(setq org-babel-python-command python-dir)
+(setq python-shell-interpreter python-dir)
+
+(defun ej/hook-python-vars ()
+  (setq indent-tabs-mode nil)
+  (setq python-indent 4)
+  (setq tab-width 2))
+
+(add-hook 'python-mode-hook 'ej/hook-python-vars)
+#+end_src
+*** groovy
+#+begin_src emacs-lisp
 ;;; use groovy-mode when file ends in .groovy or has #!/bin/groovy at start
 (autoload 'groovy-mode "groovy-mode" "Major mode for editing Groovy code." t)
 (add-to-list 'auto-mode-alist '("\.groovy$" . groovy-mode))
@@ -534,29 +537,19 @@ Works in Microsoft Windows, Mac OS X, Linux."
 (add-to-list 'interpreter-mode-alist '("groovy" . groovy-mode))
 
 ;;; make Groovy mode electric by default.
-(add-hook 'groovy-mode-hook
-          (lambda ()
-             (require 'groovy-electric)
-             (groovy-electric-mode)))
-
-(setq inferior-lisp-program "/usr/bin/clisp")
-
-
-(add-to-list 'auto-mode-alist '("\.m$" . octave-mode))
-
-;; js
+(defun ej/hook-groovy ()
+  (require 'groovy-electric)
+  (groovy-electric-mode))
+(add-hook 'groovy-mode-hook 'ej/hook-groovy)
+#+end_src
+*** js
+#+begin_src emacs-lisp
+(autoload 'js2-mode "js2" nil t)
 ; (require 'nodejs-repl)
 (add-to-list 'auto-mode-alist '("\\.json$" . js-mode))
-; (add-hook 'js-mode-hook 'js2-minor-mode)
 (add-hook 'js2-mode-hook 'ac-js2-mode)
 (setq js2-highlight-level 3)
 (setq js-indent-level 2)
-
-(add-to-list 'auto-mode-alist '("\.g4$" . antlr-mode))
-
-;; for bash
-(add-to-list 'auto-mode-alist '("\.bash_aliases$" . shell-script-mode))
-(add-to-list 'auto-mode-alist '("\.bash_path$" . shell-script-mode))
 #+end_src
 ** diff-hl-mode
 #+begin_src emacs-lisp
@@ -1017,7 +1010,14 @@ Simple goto-definition
 (use-package keyfreq
   :config
   (keyfreq-mode 1)
-  (keyfreq-autosave-mode 1))
+  (keyfreq-autosave-mode 1)
+  (setq keyfreq-excluded-commands
+        '(org-self-insert-command self-insert-command next-line previous-line isearch-printing-char
+                                  backward-word forward-word forward-char backward-char other-window
+                                  save-buffer move-end-of-line org-delete-backward-char set-mark-command
+                                  isearch-forward forward-sexp dired-next-line scroll-up-command org-cycle
+                                  dired-previous-line backward-delete-char-untabify move-beginning-of-line))
+  )
 #+end_src
 ** slime
 #+begin_src emacs-lisp
@@ -2320,7 +2320,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
                       (error nil))))
     (if is-slides
         (org-beamer-export-to-pdf)
-      (org-beamer-export-to-pdf))))
+      (org-latex-export-to-pdf))))
 (define-key org-mode-map (kbd "<f11>") 'ej/export-to-pdf-or-beamer)
 #+end_src
 ** xelatex
