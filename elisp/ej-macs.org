@@ -15,6 +15,7 @@
   - <M-RET>   - update dir in shell
   - =apropos= - search docs
   - =org-download=
+  - ej/search-next -- search next entered character
 * Early config
 ** Basic modules
 #+begin_src emacs-lisp
@@ -58,6 +59,8 @@
 (defalias 'yes-or-no-p 'y-or-n-p) ; ask emacs be laconic and brief
 (remove-hook 'kill-buffer-query-functions 'server-kill-buffer-query-function)
 (add-hook 'comint-output-filter-functions 'comint-watch-for-password-prompt)
+
+(put 'narrow-to-region 'disabled nil)
 #+end_src
 ** Functions: base
 #+begin_src emacs-lisp
@@ -493,7 +496,7 @@ Works in Microsoft Windows, Mac OS X, Linux."
 (use-package async
     :config
     (dired-async-mode 0))
-
+(setq dired-async-mode nil)
 ;; tramp
 (setq tramp-default-method "ssh")
 #+end_src
@@ -1133,7 +1136,7 @@ Simplifies navigation via links in buffer.
 
 (defun ej/copy-next-link (cnt) (interactive "p") (ej/link-nav cnt      'org-next-link     'ej/link-copier))
 (defun ej/copy-prev-link (cnt) (interactive "p") (ej/link-nav cnt      'org-previous-link 'ej/link-copier))
-(defun ej/open-next-link (cnt) (interactive "p") (ej/link-nav (1- cnt) 'org-next-link     'browse-url-of-file))
+(defun ej/open-next-link (cnt) (interactive "p") (ej/link-nav (1- cnt) 'org-next-link     'browse-url))
 
 (global-set-key (kbd "<f7>")   'ej/copy-next-link)
 (global-set-key (kbd "<S-f7>") 'ej/copy-prev-link)
@@ -1211,6 +1214,7 @@ Inserts time in different formats.
   (8  . "%H:%M:%S")
   (9  . "[%Y-%m-%d %a %H:%M]")
   (10 . "%Y-%m-%d")
+  (11 . "%a <Dec> %d %H:%M:%S %Y")
   (16 . "%d.%m.%y %a")
   ))
 (setq TIME-FORMAT-DEFAULT "%H:%M")
@@ -1234,7 +1238,8 @@ Inserts time in different formats.
 
 (defun ej/insert-time-hydra ()
   (interactive)
-  (let* ((hydra-time-formats (cl-sublis '((10 . "a") (16 . "s")) TIME-FORMATS))
+  (let* ((num-ch-subs '((10 . "a") (11 . "b") (16 . "s")))
+         (hydra-time-formats (cl-sublis num-ch-subs TIME-FORMATS))
          (sexp (-map #'ej/time-to-hydra-time hydra-time-formats)))
     (call-interactively (eval
                          `(defhydra hydra-insert-time (:exit t :columns 1 :foreign-keys warn)
@@ -1321,10 +1326,10 @@ C-u 0 M-x enumerate-rectangle"
   (message (format "%s" file-idx))
   (let* (
          (idx (if (null file-idx) 0 (1- file-idx)))
-         (file-regexp "^\\([^.]\\|\\.[^.]\\|\\.\\..\\)")
          (dir default-directory)
-         (files (sort (directory-files-and-attributes dir nil file-regexp)
-                      #'(lambda (x y) (not (time-less-p (nth 6 x) (nth 6 y))))))
+         (files (->> (directory-files-and-attributes dir nil nil)
+                     (--filter (file-regular-p (expand-file-name (car it) dir)))
+                     (--sort (not (time-less-p (nth 6 it) (nth 6 other))))))
          (nth-edited (car (nth idx files))))
     (message nth-edited)
     (beginning-of-buffer)
@@ -1697,6 +1702,12 @@ same directory as the org-buffer and insert a link to this file."
 (defun last-killed ()
   (interactive)
   (substring-no-properties (car kill-ring)))
+
+(defun ej/search-next (c)
+  (interactive "cEnter character: ")
+  (search-forward (char-to-string c))
+  (backward-char))
+(global-set-key (kbd "s-[") #'ej/search-next)
 #+end_src
 ** punto
 #+begin_src emacs-lisp
@@ -2066,6 +2077,7 @@ same directory as the org-buffer and insert a link to this file."
   ("p" (env-inserter "proof" t) "proof")
   ("c" (env-inserter "corollary" t) "corollary")
   ("w" (env-inserter "wtf" t) "wtf")
+  ("b" (insert "#+BEAMER: \\pause\n") "BEAMER pause") 
   ("<ESC>" nil "quit")
 )
 
@@ -2311,6 +2323,10 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
         "pdflatex -interaction nonstopmode -output-directory %o %f"
         "pdflatex -interaction nonstopmode -output-directory %o %f"))
 
+(defun ej/activate-org-latex-pdf-process-with-bibliography ()
+  (interactive)
+  (setq org-latex-pdf-process (list "latexmk -shell-escape -bibtex -f -pdf %f")))
+
 (defun ej/export-to-pdf-or-beamer ()
   (interactive)
   (let* ((is-slides (condition-case nil
@@ -2502,6 +2518,13 @@ To fix =org-export--get-inbuffer-options: Symbol’s function definition is void
                 '("compact-report"
                "\\documentclass[a4paper,11pt]{extarticle}"
                   ("\\subsection{%s}" . "\\section*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
+                '("compact-report2"
+               "\\documentclass[a4paper,11pt]{extarticle}"
+                  ("\\section{%s}" . "\\chapter*{%s}")
                   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
                   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
 

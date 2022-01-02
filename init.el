@@ -9,7 +9,7 @@
 (let ((repos '(("org" . "https://orgmode.org/elpa/")
                ("melpa" . "http://melpa.org/packages/")
                ("melpa-stable" . "http://stable.melpa.org/packages/")
-               ("gnu" . "https://elpa.gnu.org/packages/"))))
+               )))
   (mapc (lambda (repo) (add-to-list 'package-archives repo)) repos))
 (unless (package-installed-p 'use-package)
   (package-refresh-contents)
@@ -45,5 +45,16 @@
 
 ;;;; ----- ej-macs.org
 (require 'org)
-(org-babel-load-file (ej/emacs-path "elisp/ej-macs.org"))
-(put 'narrow-to-region 'disabled nil)
+(defun ej/load-config (name)
+  "Load the Emacs Lisp file tangled from an Org file called NAME
+   and placed in the user emacs directory, if that tangled code is
+   still actual.  Otherwise, resort to `org-babel-load-file'."
+  (let* ((org-file (expand-file-name name user-emacs-directory))
+         (elisp-file (concat (file-name-sans-extension org-file) ".el")))
+    (when (file-exists-p org-file)
+      (if (file-newer-than-file-p elisp-file org-file)
+          (load-file elisp-file)
+        (org-babel-load-file org-file)))))
+
+(ej/load-config "elisp/ej-macs.org")
+
