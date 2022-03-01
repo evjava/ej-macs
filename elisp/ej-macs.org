@@ -16,6 +16,7 @@
   - =apropos= - search docs
   - =org-download=
   - ej/search-next -- search next entered character
+  - kill-sexp-at-point
 * Early config
 ** Basic modules
 #+begin_src emacs-lisp
@@ -798,7 +799,15 @@ Works in Microsoft Windows, Mac OS X, Linux."
 #+end_src
 ** google-translate
 #+begin_src emacs-lisp
-(use-package google-translate)
+(use-package google-translate
+  :config
+  (require 'google-translate-default-ui)
+  (global-set-key "\C-ct" 'google-translate-at-point)
+  (global-set-key "\C-cT" 'google-translate-query-translate))
+
+;; fix from https://github.com/atykhonov/google-translate/issues/52
+(defun google-translate--search-tkk () "Search TKK." (list 430675 2721866130))
+(setq google-translate-backend-method 'curl)
 ; (require 'google-translate-default-ui)
 
 (fset 'ej/translate-yank [?\M-w ?\C-c ?T ?  ?  ?\C-y return])
@@ -976,8 +985,8 @@ Works in Microsoft Windows, Mac OS X, Linux."
 #+begin_src emacs-lisp
 (use-package avy
   :config
-  (global-set-key (kbd "C-$") 'avy-goto-char)
-  (global-set-key (kbd "C-;") 'avy-goto-char))
+  (global-set-key (kbd "C-$") 'avy-goto-char-timer)
+  (global-set-key (kbd "C-;") 'avy-goto-char-timer))
 #+end_src
 ** winner
 #+begin_src emacs-lisp
@@ -1827,8 +1836,6 @@ same directory as the org-buffer and insert a link to this file."
   ("e" split-window-horizontally "split horizontally")
   ("v" split-window-vertically "split vertically")
   ("o" other-window "other window")
-  ("i" ej/org-insert-env/body "insert env ORG hydra" :exit t)
-  ("I" ej/tex-insert-env/body "insert env TEX hydra" :exit t)
   ("q" delete-other-windows "delete-other-windows")
   ("0" delete-window "delete-window")
   ("s" swap-buffers-in-windows "swap windows" :exit t)
@@ -1837,8 +1844,6 @@ same directory as the org-buffer and insert a link to this file."
   ("m" (switch-to-buffer "*Messages*") "*Messages*" :exit t)
   ("p" (switch-to-buffer "*Packages*") "*Packages*" :exit t)
   ("P" (switch-to-buffer "*Python*") "*Python*" :exit t)
-  ("l" (switch-to-buffer "*Org PDF LaTeX Output*") "*Org PDF LaTeX Output*" :exit t)
-  ("L" (ej/remove-last-ltximg-latex-preview 1) "remove last latex" :exit t)
   ("<f8>" ej/dired-in-other-window "Dired in other window" :exit t)
   ("<ESC>" nil "quit")
 )
@@ -2057,7 +2062,7 @@ same directory as the org-buffer and insert a link to this file."
   ("<ESC>" nil "exit"))
 (global-set-key (kbd "C-s-y") 'ej/hydra-yank/body)
 #+end_src
-** hydra: org/latex inserters           :inserters:
+** hydra: org/latex inserters           :inserters:latex:
 #+begin_src emacs-lisp
 (defun env-inserter (env is-org)
   (let (
@@ -2120,7 +2125,7 @@ same directory as the org-buffer and insert a link to this file."
   ("<ESC>" nil "quit")
 )
 #+end_src
-** hydra: latex expansions
+** hydra: latex expansions              :latex:
 #+begin_src emacs-lisp
 (defun ej/tex-expand-sequence ()
   (interactive)
@@ -2180,6 +2185,9 @@ same directory as the org-buffer and insert a link to this file."
   ("s" ej/sat-latexify "latexify SAT formula")
   ("r" ej/remove-last-ltximg-latex-preview "Remove last preview")
   ("R" (ej/remove-last-ltximg-latex-preview 16) "Remove last 16 previews")
+  ("i" ej/org-insert-env/body "insert env ORG hydra")
+  ("I" ej/tex-insert-env/body "insert env TEX hydra")
+  ("l" (switch-to-buffer "*Org PDF LaTeX Output*") "*Org PDF LaTeX Output*" :exit t)
   ("<ESC>" nil "exit"))
 
 ;; (ej/hydra-org/body)
@@ -2194,9 +2202,29 @@ same directory as the org-buffer and insert a link to this file."
     (insert ":reload")
     (comint-send-input)))
 
+(defun ej/haskell-find-first-error ()
+  (interactive)
+  (with-current-buffer "*shell*<1>"
+    (search-backward ":reload")
+    (search-forward "error:")
+    (backward-sexp 3)
+    (let* ((line (string-to-number (thing-at-point 'word)))
+           (_ (progn (forward-sexp 1) (forward-char 1)))
+           (pos (string-to-number (thing-at-point 'word))))
+      (cons line pos))))
+
+(defun ej/haskell-jump-first-error ()
+  (interactive)
+  (let* ((line-pos (ej/haskell-find-first-error)))
+    (goto-line (car line-pos))
+    (beginning-of-line)
+    (forward-char (1- (cdr line-pos)))))
+  
 (defhydra ej/hydra-haskell (:foreign-keys warn :columns 1 :exit t)
   " Haskell helpers "
-  ("h" ej/haskell-reload "reload"))
+  ("h" ej/haskell-reload "reload")
+  ("e" ej/haskell-jump-first-error "jump first error")
+)
   
 (global-set-key (kbd "C-s-h") 'ej/hydra-haskell/body)
 #+end_src
@@ -2220,18 +2248,39 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
       :config (ej/configure-nav-nav)))
 #+end_src
 * ORG configuration
-** base org config
+** cdlatex                              :latex:
+#+begin_src emacs-lisp
+(use-package cdlatex
+  :config
+  (add-hook 'org-mode-hook 'turn-on-org-cdlatex))
+#+end_src
+** latex configuration                  :latex:
 #+begin_src emacs-lisp
 (use-package auctex
   :defer t)
 
+(setq org-preview-latex-image-directory (concat org-latex-preview-dir "/"))
+
+(defun ej/org-latex-hook ()
+  (local-set-key (kbd "s-j") 'org-latex-preview)
+
+  ;; cdlatex
+  (define-key org-cdlatex-mode-map "_" nil)
+  (define-key org-cdlatex-mode-map "^" nil)
+  (define-key org-cdlatex-mode-map "'" nil)
+  (define-key org-cdlatex-mode-map "`" nil)
+)
+(add-hook 'org-mode-hook 'ej/org-latex-hook)
+#+end_src
+** base org config
+#+begin_src emacs-lisp
 (setq org-export-coding-system 'utf-8)
 (setq calendar-week-start-day 1)
 (setq org-log-done nil)
-(setq org-image-actual-width '(200))
-(setq org-preview-latex-image-directory (concat org-latex-preview-dir "/"))
+(setq org-image-actual-width '(500))
 
 (global-set-key (kbd "C-c c") 'org-capture)
+
 #+end_src
 ** org-plus-contrib
 #+begin_src emacs-lisp
@@ -2248,16 +2297,8 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   (local-set-key (kbd "C-x w") 'ej/wrap-src)
   (local-set-key (kbd "C-s-n") 'ej/new-note)
 
-  ;; cdlatex
-  (define-key org-cdlatex-mode-map "_" nil)
-  (define-key org-cdlatex-mode-map "^" nil)
-  (define-key org-cdlatex-mode-map "'" nil)
-  (define-key org-cdlatex-mode-map "`" nil)
-
   (local-set-key (kbd "C-M-x") 'eval-defun)
   (local-set-key (kbd "C-M-x") 'eval-defun)
-
-  (local-set-key (kbd "s-j") 'org-latex-preview)
 
   ;; don't need margins after new-line
   (electric-indent-local-mode -1)
@@ -2265,7 +2306,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 )
 (add-hook 'org-mode-hook 'ej/org-hook)
 #+end_src
-** org-ref
+** org-ref                              :latex:
 #+begin_src emacs-lisp
 (require 'ox-bibtex)
 (setq bibtex-dialect 'biblatex)
@@ -2300,7 +2341,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   (require 'org-ref-pubmed)
 )
 #+end_src
-** latex export
+** latex pdf export                     :latex:
 #+begin_src emacs-lisp
 (setq org-latex-hyperref-template "\\hypersetup{
  pdfauthor={%a},
@@ -2339,7 +2380,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
       (org-latex-export-to-pdf))))
 (define-key org-mode-map (kbd "<f11>") 'ej/export-to-pdf-or-beamer)
 #+end_src
-** xelatex
+** xelatex                              :latex:
 #+begin_src emacs-lisp
 (defun ej/activate-xelatex ()
   (interactive)
@@ -2351,7 +2392,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   (setq org-latex-compiler "xelatex"))
 ;; (ej/activate-xelatex)
 #+end_src
-** minted (python code export)
+** minted (python code export)          :latex:
 <<minted-config>>
 http://joonro.github.io/blog/posts/org-mode-outputdir-minted-latex-export/
 
@@ -2384,13 +2425,7 @@ Also I add this to document:
 )
 ;; (ej/activate-minted)
 #+end_src
-** cdlatex
-#+begin_src emacs-lisp
-(use-package cdlatex
-  :config
-  (add-hook 'org-mode-hook 'turn-on-org-cdlatex))
-#+end_src
-** latex
+** latex html export                    :latex:
 #+begin_src emacs-lisp
 (setq org-export-html-postamble nil)
 (setq org-html-postamble-format nil)
