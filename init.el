@@ -6,8 +6,7 @@
 ;;;; ----- packages
 (require 'package)
 (package-initialize)
-(let ((repos '(("org" . "https://orgmode.org/elpa/")
-               ("melpa" . "http://melpa.org/packages/")
+(let ((repos '(("melpa" . "http://melpa.org/packages/")
                ("melpa-stable" . "http://stable.melpa.org/packages/")
                )))
   (mapc (lambda (repo) (add-to-list 'package-archives repo)) repos))

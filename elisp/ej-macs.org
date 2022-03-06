@@ -384,6 +384,10 @@
    :url "https://github.com/quelpa/quelpa-use-package.git"))
 (require 'quelpa-use-package)
 #+end_src
+** hydra                                :hydra:
+#+begin_src emacs-lisp
+(use-package hydra)
+#+end_src
 * Config
 ** shell
 *** basic config
@@ -501,60 +505,6 @@ Works in Microsoft Windows, Mac OS X, Linux."
 ;; tramp
 (setq tramp-default-method "ssh")
 #+end_src
-** develop
-*** common
-#+begin_src emacs-lisp
-(setq-default c-basic-offset 2 c-default-style "linux")
-(setq-default tab-width 2 indent-tabs-mode t)
-
-;;; turn on syntax highlighting
-(global-font-lock-mode 1)
-
-(setq inferior-lisp-program "/usr/bin/clisp")
-
-;; for bash
-(add-to-list 'auto-mode-alist '("\.bash_aliases$" . shell-script-mode))
-(add-to-list 'auto-mode-alist '("\.bash_path$" . shell-script-mode))
-
-(add-to-list 'auto-mode-alist '("\.m$" . octave-mode))
-(add-to-list 'auto-mode-alist '("\.g4$" . antlr-mode))
-#+end_src
-*** python
-#+begin_src emacs-lisp
-(setq org-babel-python-command python-dir)
-(setq python-shell-interpreter python-dir)
-
-(defun ej/hook-python-vars ()
-  (setq indent-tabs-mode nil)
-  (setq python-indent 4)
-  (setq tab-width 2))
-
-(add-hook 'python-mode-hook 'ej/hook-python-vars)
-#+end_src
-*** groovy
-#+begin_src emacs-lisp
-;;; use groovy-mode when file ends in .groovy or has #!/bin/groovy at start
-(autoload 'groovy-mode "groovy-mode" "Major mode for editing Groovy code." t)
-(add-to-list 'auto-mode-alist '("\.groovy$" . groovy-mode))
-(add-to-list 'auto-mode-alist '("\.gant$" . groovy-mode))
-(add-to-list 'auto-mode-alist '("\.gradle$" . groovy-mode))
-(add-to-list 'interpreter-mode-alist '("groovy" . groovy-mode))
-
-;;; make Groovy mode electric by default.
-(defun ej/hook-groovy ()
-  (require 'groovy-electric)
-  (groovy-electric-mode))
-(add-hook 'groovy-mode-hook 'ej/hook-groovy)
-#+end_src
-*** js
-#+begin_src emacs-lisp
-(autoload 'js2-mode "js2" nil t)
-; (require 'nodejs-repl)
-(add-to-list 'auto-mode-alist '("\\.json$" . js-mode))
-(add-hook 'js2-mode-hook 'ac-js2-mode)
-(setq js2-highlight-level 3)
-(setq js-indent-level 2)
-#+end_src
 ** diff-hl-mode
 #+begin_src emacs-lisp
 (use-package diff-hl
@@ -574,7 +524,7 @@ Works in Microsoft Windows, Mac OS X, Linux."
       )))
 (add-hook 'find-file-hook 'ej/find-file-check-make-large-file-read-only-hook)
 #+end_src
-** Themes
+** themes
 #+begin_src emacs-lisp
 ;; https://emacs.stackexchange.com/questions/24088/make-a-function-to-toggle-themes
 
@@ -655,6 +605,334 @@ Works in Microsoft Windows, Mac OS X, Linux."
 								 (read (get-string-from-file *ej/theme-location*)))))
 		(ej/set-theme theme)))
 (load-theme-on-start)
+#+end_src
+** nav-nav
+Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
+#+begin_src emacs-lisp
+(defun ej/configure-nav-nav ()
+  (setq nav-nav-is-switch-layout t)
+  (setq nav-nav-file nav-items-file)
+  (global-set-key (kbd "s-s") 'nav-nav))
+;; todo is it possible choose load-path or quelpa inside use-package?
+;; todo is it possible choose load-path or quelpa inside use-package?
+(if (ej/file-exists-p nav-nav-dir)
+    (use-package nav-nav
+      :after (hydra)
+      :load-path nav-nav-dir
+      :config (ej/configure-nav-nav))
+  (use-package nav-nav
+      :after (hydra)
+      :quelpa (nav-nav :fetcher git :url "https://github.com/evjava/nav-nav.git")
+      :config (ej/configure-nav-nav)))
+#+end_src
+* Develop
+** common
+#+begin_src emacs-lisp
+(setq-default c-basic-offset 2 c-default-style "linux")
+(setq-default tab-width 2 indent-tabs-mode t)
+
+;;; turn on syntax highlighting
+(global-font-lock-mode 1)
+
+(setq inferior-lisp-program "/usr/bin/clisp")
+
+;; for bash
+(add-to-list 'auto-mode-alist '("\.bash_aliases$" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\.bash_path$" . shell-script-mode))
+
+(add-to-list 'auto-mode-alist '("\.m$" . octave-mode))
+(add-to-list 'auto-mode-alist '("\.g4$" . antlr-mode))
+#+end_src
+** python
+#+begin_src emacs-lisp
+(setq org-babel-python-command python-dir)
+(setq python-shell-interpreter python-dir)
+
+(defun ej/hook-python-vars ()
+  (setq indent-tabs-mode nil)
+  (setq python-indent 4)
+  (setq tab-width 2))
+
+(add-hook 'python-mode-hook 'ej/hook-python-vars)
+#+end_src
+** groovy
+#+begin_src emacs-lisp
+;;; use groovy-mode when file ends in .groovy or has #!/bin/groovy at start
+(autoload 'groovy-mode "groovy-mode" "Major mode for editing Groovy code." t)
+(add-to-list 'auto-mode-alist '("\.groovy$" . groovy-mode))
+(add-to-list 'auto-mode-alist '("\.gant$" . groovy-mode))
+(add-to-list 'auto-mode-alist '("\.gradle$" . groovy-mode))
+(add-to-list 'interpreter-mode-alist '("groovy" . groovy-mode))
+
+;;; make Groovy mode electric by default.
+(defun ej/hook-groovy ()
+  (require 'groovy-electric)
+  (groovy-electric-mode))
+(add-hook 'groovy-mode-hook 'ej/hook-groovy)
+#+end_src
+** js
+#+begin_src emacs-lisp
+(autoload 'js2-mode "js2" nil t)
+; (require 'nodejs-repl)
+(add-to-list 'auto-mode-alist '("\\.json$" . js-mode))
+(add-hook 'js2-mode-hook 'ac-js2-mode)
+(setq js2-highlight-level 3)
+(setq js-indent-level 2)
+#+end_src
+** C++                                  :cpp:
+#+begin_src emacs-lisp
+(defun ej/c-mode-common-hook ()
+ " https://stackoverflow.com/questions/663588/emacs-c-mode-incorrect-indentation " 
+ ;; my customizations for all of c-mode, c++-mode, objc-mode, java-mode
+ (c-set-offset 'substatement-open 0)
+ ;; other customizations can go here
+
+ (setq c++-tab-always-indent t)
+ (setq c-basic-offset 4)                  ;; Default is 2
+ (setq c-indent-level 4)                  ;; Default is 2
+
+ (setq tab-stop-list '(4 8 12 16 20 24 28 32 36 40 44 48 52 56 60))
+ (setq tab-width 4)
+ (setq indent-tabs-mode t)  ; use spaces only if nil
+ (local-set-key (kbd "C-s-i") #'ej/hydra-cpp/body)
+ )
+#+end_src
+** C++: hydra                           :hydra:
+#+begin_src emacs-lisp
+(add-hook 'c-mode-common-hook 'ej/c-mode-common-hook)
+
+(defun ej/insert-dbg ()
+  (interactive)
+  (insert "std::cout << \"DBG: ")
+  (save-excursion
+    (insert "\" << std::endl;")))
+
+(defun ej/toggle-comment-and-next-line ()
+  (interactive)
+  (back-to-indentation)
+  (if (looking-at "// ")
+      (delete-char 3)
+    (insert "// "))
+  (next-line 1))
+
+(defhydra ej/hydra-cpp (:foreign-keys warn :columns 1 :exit t)
+  " Haskell helpers "
+  ("i" ej/insert-dbg "insert debug")
+  ("g" dumb-jump-go "jump-go")
+  ("b" dumb-jump-back "jump-back")
+  ("/" ej/toggle-comment-and-next-line "//" :exit nil)
+  ("d" (search-forward "DBG") "next DBG" :exit nil)
+  )
+#+end_src
+** haskell
+#+begin_src emacs-lisp
+(use-package haskell-mode
+  :config
+  (add-hook 'haskell-mode-hook 'turn-on-haskell-indentation))
+#+end_src
+** haskell: hydra                       :hydra:
+#+begin_src emacs-lisp
+(defun ej/haskell-reload ()
+  (interactive)
+  (with-current-buffer "*shell*<1>"
+    (end-of-buffer)
+    (insert ":reload")
+    (comint-send-input)))
+
+(defun ej/haskell-find-first-error ()
+  (interactive)
+  (with-current-buffer "*shell*<1>"
+    (search-backward ":reload")
+    (search-forward "error:")
+    (backward-sexp 3)
+    (let* ((line (string-to-number (thing-at-point 'word)))
+           (_ (progn (forward-sexp 1) (forward-char 1)))
+           (pos (string-to-number (thing-at-point 'word))))
+      (cons line pos))))
+
+(defun ej/haskell-jump-first-error ()
+  (interactive)
+  (let* ((line-pos (ej/haskell-find-first-error)))
+    (goto-line (car line-pos))
+    (beginning-of-line)
+    (forward-char (1- (cdr line-pos)))))
+  
+(defhydra ej/hydra-haskell (:foreign-keys warn :columns 1 :exit t)
+  " Haskell helpers "
+  ("h" ej/haskell-reload "reload")
+  ("e" ej/haskell-jump-first-error "jump first error")
+)
+  
+(global-set-key (kbd "C-s-h") 'ej/hydra-haskell/body)
+#+end_src
+** slime                                :clisp:
+#+begin_src emacs-lisp
+(use-package slime
+  :config
+  (setq inferior-lisp-program "/usr/bin/sbcl"))
+#+end_src
+** elisp: hydra                         :elisp:hydra:
+#+begin_src emacs-lisp
+(defmacro msg (&rest vars)
+  " for debug purposes "
+  `(progn
+     (mapc
+      (lambda (v)
+        (condition-case nil
+            (message "DBG: %s is <%s>" v (eval v))
+          (error (message "DBG: %s not exists..." v))))
+      (list ,@vars))
+     nil))
+
+(defun ej/replace-last-sexp (new-sexp)
+  (kill-sexp -1)
+  (insert (format "%S" new-sexp)))
+
+(defun ej/eval-replace (mode)
+  (interactive "p")
+  (let ((value (eval (elisp--preceding-sexp))))
+    (if (eq mode 1) (kill-sexp -1))
+    (save-excursion
+      (insert (format "%S" value)))))
+
+(defun ej/cur-sexp ()
+  (interactive)
+  (read (thing-at-point 'sexp)))
+
+(defun ej/setq-let ()
+  (interactive)
+  (save-excursion
+    (let* ((sexp-unq (read (thing-at-point 'sexp)))
+           (var-unq (car sexp-unq))
+           (val-unq (cadr sexp-unq))
+           (ev-val-unq (eval val-unq))
+           (tp (type-of ev-val-unq)))
+			(eval `(setq ,var-unq ev-val-unq))
+      (message "%s >> %s :: %s" var-unq ev-val-unq tp)
+      (eros--eval-overlay (format "%s :: %s" ev-val-unq tp) (point))
+      (list var-unq ev-val-unq))))
+
+(defun ej/setq-last-sexp (var-unq)
+  (interactive "senter var name: ")
+  (save-excursion
+    (let* ((sexp-unq (ej/cur-sexp)))
+    (eval `(setq ,(read v) ',sexp-unq))
+    (message "%s >> %s" var-unq (symbol-value var-unq)))))
+
+(defun ej/setq-killed (var)
+  (interactive "senter var name: ")
+  (let* ((var-symbol (read var))
+         (kill (substring-no-properties (current-kill 0))))
+    (eval `(setq ,var-symbol ,kill))
+    (message "%s >> %s" var (symbol-value var-symbol))))
+
+(defun ej/message-last-sexp ()
+  (interactive)
+  (let* ((sexp (ej/cur-sexp)))
+    (message "sexp: %s >> %s" sexp (eval sexp))))
+
+(defun ej/copy-sexp-at-point ()
+  (interactive)
+  (kill-new (thing-at-point 'sexp)))
+
+(defun ej/setq-last-let-forward ()
+  (interactive)
+  (ej/setq-let)
+  (condition-case nil 
+      (forward-sexp) 
+    (error nil)))
+
+(defun ej/eval-last-sexp-forward ()
+  (interactive)
+  (let* ((res (eval (ej/cur-sexp))))
+    (forward-sexp)
+    (message "Evaluated: %s" res)))
+
+(defun ej/defun-assign ()
+  (interactive)
+  (let* ((sexp (read (thing-at-point 'sexp)))
+         (fun-def (symbol-function (car sexp)))
+         (fun-args (cl-remove '&optional (cadr fun-def)))
+         (assignments (->> (-zip-fill nil fun-args (cdr sexp))
+                           (mapcar #'-cons-to-list)
+                           (-flatten-n 1)))
+         (expr `(setq ,@assignments)))
+    (eval expr)
+    (message "evaluated: %s" expr)))
+
+(defun ej/s-prefix (str drop-last)
+  (substring str 0 (- (length str) drop-last)))
+
+; brg-util-test.el
+(defun ej/toggle-el-test ()
+  (interactive)
+  (let* ((bfn buffer-file-name)
+         (is-test (s-suffix? "test.el" bfn))
+         (bfn-new (if is-test
+                      (s-replace "-test.el" ".el" bfn)
+                    (s-replace ".el" "-test.el" bfn))))
+    (switch-to-buffer bfn-new)))
+
+(defun ej/indent-and-next-line ()
+  (interactive)
+  (indent-for-tab-command)
+  (next-line 1))
+
+(defun ej/comment-and-next-line ()
+  (interactive)
+  (beginning-of-line 1)
+  (insert ";;")
+  (next-line 1))
+
+(defun ej/jump-go ()
+  (interactive)
+  (let* ((sexp (->> (thing-at-point 'sexp) (read))))
+    (cond
+     ((symbolp sexp) (dumb-jump-go))
+     ((consp sexp) (progn
+                     (backward-sexp 1)
+                     (forward-char 1)
+                     (forward-sexp 1)
+                     (dumb-jump-go)))
+     (t (error "not supported")))))
+
+(defhydra ej/elisp-interactive (:columns 4 :foreign-keys warn :exit t)
+  "Emacs Lisp interactive stuff"
+  ("g" ej/jump-go "dumb-jump-go wrapper")
+  ("r" ej/eval-replace "replace last sexp")
+  ("s" ej/setq-last-sexp "setq last sexp")
+  ("m" ej/message-last-sexp "message last sexp")
+  ("l" ej/setq-let "setq last let")
+  ("L" ej/setq-last-let-forward "setq last let and forward" :exit nil)
+  ("k" ej/setq-killed "setq killed")
+  ("w" ej/copy-sexp-at-point "copy last sexp")
+  ("E" ej/eval-last-sexp-forward "eval last sexp and forward" :exit nil)
+  (";" ej/comment-and-next-line "comment and next line" :exit nil)
+  ("e" eros-eval-last-sexp "eval last sexp")
+  ("o" eval-buffer "eval-buffer")
+  ("p" (ert t) "ert")
+  ("a" ej/defun-assign "assign to arguments of defun")
+  ("T" ej/toggle-el-test "toggle .el or -test.el")
+  ("TAB" ej/indent-and-next-line "Indent and next line" :exit nil)
+  ("<ESC>" nil "exit")
+  ("C-n" (next-line) "exit")
+  )
+(global-set-key (kbd "s-l") 'ej/elisp-interactive/body)
+(global-set-key (kbd "M-s-t") 'transpose-sexps)
+(global-set-key (kbd "C-x s-e") 'ej/eval-replace)
+(global-set-key (kbd "C-x C-S-e") 'ej/eval-replace)
+#+end_src
+** treepy                               :elisp:
+Clojure Zippers for Emacs Lisp
+https://github.com/volrath/treepy.el
+#+begin_src emacs-lisp
+(use-package treepy)
+#+end_src
+** eros                                 :elisp:
+#+begin_src emacs-lisp
+(use-package eros
+  :config
+  (eros-mode 1))
 #+end_src
 * Modules
 <<modules>>
@@ -1011,12 +1289,6 @@ Simple goto-definition
 #+begin_src emacs-lisp
 (use-package dumb-jump)
 #+end_src
-** haskell
-#+begin_src emacs-lisp
-(use-package haskell-mode
-  :config
-  (add-hook 'haskell-mode-hook 'turn-on-haskell-indentation))
-#+end_src
 ** keyfreq
 #+begin_src emacs-lisp
 (use-package keyfreq
@@ -1030,24 +1302,6 @@ Simple goto-definition
                                   isearch-forward forward-sexp dired-next-line scroll-up-command org-cycle
                                   dired-previous-line backward-delete-char-untabify move-beginning-of-line))
   )
-#+end_src
-** slime
-#+begin_src emacs-lisp
-(use-package slime
-  :config
-  (setq inferior-lisp-program "/usr/bin/sbcl"))
-#+end_src
-** treepy                               :elisp:
-Clojure Zippers for Emacs Lisp
-https://github.com/volrath/treepy.el
-#+begin_src emacs-lisp
-(use-package treepy)
-#+end_src
-** eros
-#+begin_src emacs-lisp
-(use-package eros
-  :config
-  (eros-mode 1))
 #+end_src
 * Functions
 <<utils>>
@@ -1714,8 +1968,11 @@ same directory as the org-buffer and insert a link to this file."
 
 (defun ej/search-next (c)
   (interactive "cEnter character: ")
-  (search-forward (char-to-string c))
-  (backward-char))
+  (let* ((cc (char-to-string c)))
+    (if (looking-at cc) 
+        (forward-char))
+    (search-forward cc)
+    (backward-char)))
 (global-set-key (kbd "s-[") #'ej/search-next)
 #+end_src
 ** punto
@@ -1749,7 +2006,7 @@ same directory as the org-buffer and insert a link to this file."
       (forward-char 1))))
     
 #+end_src
-** python copy section
+** python: copy section                 :python:
 #+begin_src emacs-lisp
 (defun avi-kill-line-save (&optional arg)
       "Copy to the kill ring from point to the end of the current line.
@@ -1798,12 +2055,7 @@ same directory as the org-buffer and insert a link to this file."
     (setq         frame-title-format   f-title)
     (setq         is-presentation-mode p-mode)))
 #+end_src
-* Hydra
-** module
-#+begin_src emacs-lisp
-(use-package hydra)
-#+end_src
-** hydra: navigations
+** hydra: navigations                   :hydra:
 #+begin_src emacs-lisp
 (defun ej/toggle-pdf-org ()
   (interactive)
@@ -1850,158 +2102,7 @@ same directory as the org-buffer and insert a link to this file."
 
 (global-set-key (kbd "<M-f8>") 'ej/hydra-buffers-windows/body)
 #+end_src
-** hydra: interactive emacs lisp        :elisp:
-#+begin_src emacs-lisp
-(defmacro msg (&rest vars)
-  " for debug purposes "
-  `(progn
-     (mapc
-      (lambda (v)
-        (condition-case nil
-            (message "DBG: %s is <%s>" v (eval v))
-          (error (message "DBG: %s not exists..." v))))
-      (list ,@vars))
-     nil))
-
-(defun ej/replace-last-sexp (new-sexp)
-  (kill-sexp -1)
-  (insert (format "%S" new-sexp)))
-
-(defun ej/eval-replace (mode)
-  (interactive "p")
-  (let ((value (eval (elisp--preceding-sexp))))
-    (if (eq mode 1) (kill-sexp -1))
-    (save-excursion
-      (insert (format "%S" value)))))
-
-(defun ej/cur-sexp ()
-  (interactive)
-  (read (thing-at-point 'sexp)))
-
-(defun ej/setq-let ()
-  (interactive)
-  (save-excursion
-    (let* ((sexp-unq (read (thing-at-point 'sexp)))
-           (var-unq (car sexp-unq))
-           (val-unq (cadr sexp-unq))
-           (ev-val-unq (eval val-unq))
-           (tp (type-of ev-val-unq)))
-			(eval `(setq ,var-unq ev-val-unq))
-      (message "%s >> %s :: %s" var-unq ev-val-unq tp)
-      (eros--eval-overlay (format "%s :: %s" ev-val-unq tp) (point))
-      (list var-unq ev-val-unq))))
-
-(defun ej/setq-last-sexp (var-unq)
-  (interactive "senter var name: ")
-  (save-excursion
-    (let* ((sexp-unq (ej/cur-sexp)))
-    (eval `(setq ,(read v) ',sexp-unq))
-    (message "%s >> %s" var-unq (symbol-value var-unq)))))
-
-(defun ej/setq-killed (var)
-  (interactive "senter var name: ")
-  (let* ((var-symbol (read var))
-         (kill (substring-no-properties (current-kill 0))))
-    (eval `(setq ,var-symbol ,kill))
-    (message "%s >> %s" var (symbol-value var-symbol))))
-
-(defun ej/message-last-sexp ()
-  (interactive)
-  (let* ((sexp (ej/cur-sexp)))
-    (message "sexp: %s >> %s" sexp (eval sexp))))
-
-(defun ej/copy-sexp-at-point ()
-  (interactive)
-  (kill-new (thing-at-point 'sexp)))
-
-(defun ej/setq-last-let-forward ()
-  (interactive)
-  (ej/setq-let)
-  (condition-case nil 
-      (forward-sexp) 
-    (error nil)))
-
-(defun ej/eval-last-sexp-forward ()
-  (interactive)
-  (let* ((res (eval (ej/cur-sexp))))
-    (forward-sexp)
-    (message "Evaluated: %s" res)))
-
-(defun ej/defun-assign ()
-  (interactive)
-  (let* ((sexp (read (thing-at-point 'sexp)))
-         (fun-def (symbol-function (car sexp)))
-         (fun-args (cl-remove '&optional (cadr fun-def)))
-         (assignments (->> (-zip-fill nil fun-args (cdr sexp))
-                           (mapcar #'-cons-to-list)
-                           (-flatten-n 1)))
-         (expr `(setq ,@assignments)))
-    (eval expr)
-    (message "evaluated: %s" expr)))
-
-(defun ej/s-prefix (str drop-last)
-  (substring str 0 (- (length str) drop-last)))
-
-; brg-util-test.el
-(defun ej/toggle-el-test ()
-  (interactive)
-  (let* ((bfn buffer-file-name)
-         (is-test (s-suffix? "test.el" bfn))
-         (bfn-new (if is-test
-                      (s-replace "-test.el" ".el" bfn)
-                    (s-replace ".el" "-test.el" bfn))))
-    (switch-to-buffer bfn-new)))
-
-(defun ej/indent-and-next-line ()
-  (interactive)
-  (indent-for-tab-command)
-  (next-line 1))
-
-(defun ej/comment-and-next-line ()
-  (interactive)
-  (beginning-of-line 1)
-  (insert ";;")
-  (next-line 1))
-
-(defun ej/jump-go ()
-  (interactive)
-  (let* ((sexp (->> (thing-at-point 'sexp) (read))))
-    (cond
-     ((symbolp sexp) (dumb-jump-go))
-     ((consp sexp) (progn
-                     (backward-sexp 1)
-                     (forward-char 1)
-                     (forward-sexp 1)
-                     (dumb-jump-go)))
-     (t (error "not supported")))))
-
-(defhydra ej/elisp-interactive (:columns 4 :foreign-keys warn :exit t)
-  "Emacs Lisp interactive stuff"
-  ("g" ej/jump-go "dumb-jump-go wrapper")
-  ("r" ej/eval-replace "replace last sexp")
-  ("s" ej/setq-last-sexp "setq last sexp")
-  ("m" ej/message-last-sexp "message last sexp")
-  ("l" ej/setq-let "setq last let")
-  ("L" ej/setq-last-let-forward "setq last let and forward" :exit nil)
-  ("k" ej/setq-killed "setq killed")
-  ("w" ej/copy-sexp-at-point "copy last sexp")
-  ("E" ej/eval-last-sexp-forward "eval last sexp and forward" :exit nil)
-  (";" ej/comment-and-next-line "comment and next line" :exit nil)
-  ("e" eros-eval-last-sexp "eval last sexp")
-  ("o" eval-buffer "eval-buffer")
-  ("p" (ert t) "ert")
-  ("a" ej/defun-assign "assign to arguments of defun")
-  ("T" ej/toggle-el-test "toggle .el or -test.el")
-  ("TAB" ej/indent-and-next-line "Indent and next line" :exit nil)
-  ("<ESC>" nil "exit")
-  ("C-n" (next-line) "exit")
-  )
-(global-set-key (kbd "s-l") 'ej/elisp-interactive/body)
-(global-set-key (kbd "M-s-t") 'transpose-sexps)
-(global-set-key (kbd "C-x s-e") 'ej/eval-replace)
-(global-set-key (kbd "C-x C-S-e") 'ej/eval-replace)
-#+end_src
-** hydra: yank patchers
+** hydra: yank patchers                 :hydra:
 #+begin_src emacs-lisp
 (defun ej/yank-downloaded-title ()
   "insert in this buffer title for yanked url"
@@ -2062,191 +2163,6 @@ same directory as the org-buffer and insert a link to this file."
   ("<ESC>" nil "exit"))
 (global-set-key (kbd "C-s-y") 'ej/hydra-yank/body)
 #+end_src
-** hydra: org/latex inserters           :inserters:latex:
-#+begin_src emacs-lisp
-(defun env-inserter (env is-org)
-  (let (
-      (start-fmt (if is-org "#+begin_%s\n" "\\begin{%s}\n"))
-      (end-fmt (if is-org "\n#+end_%s\n" "\n\\end{%s}\n")))
-    (insert (format start-fmt env))
-    (save-excursion (insert (format end-fmt env)))))
-
-(defhydra ej/org-insert-env (:foreign-keys warn :columns 1 :exit t)
-  "Insert..."
-  ("p" (env-inserter "proof" t) "proof")
-  ("t" (env-inserter "theorem" t) "theorem")
-  ("d" (env-inserter "definition" t) "definition")
-  ("l" (env-inserter "lemma" t) "lemma")
-  ("s" (env-inserter "statement" t) "statement")
-  ("e" (env-inserter "equation*" nil) "equation*")
-  ("p" (env-inserter "proof" t) "proof")
-  ("c" (env-inserter "corollary" t) "corollary")
-  ("w" (env-inserter "wtf" t) "wtf")
-  ("b" (insert "#+BEAMER: \\pause\n") "BEAMER pause") 
-  ("<ESC>" nil "quit")
-)
-
-(defun ins-helper (before after)
-  (interactive)
-  (insert before)
-  (save-excursion (insert after)))
-
-(defun ins-env (env)
-  (interactive)
-  (let (
-      (start (format "\\begin{%s}\n  " env))
-      (end (format "\n\\end{%s}" env)))
-    (ins-helper start end)))
-
-(defhydra ej/tex-insert-env (:foreign-keys warn :columns 1 :exit t)
-  "Insert..."
-  ("n" (ins-helper "\\begin{enumerate}\n  \\item " "\n\\end{enumerate}") "num-list (enumerate)")
-  ("l" (ins-helper "\\begin{itemize}\n  \\item " "\n\\end{itemize}") "list (itemize)")
-  ("L" (ins-env "lemma") "lemma")
-  ("b" (ins-helper "\\textbf{" "}") "bold")
-  ("c" (ins-env "corollary") "corollary")
-  ("i" (ins-helper "\\textit{" "}") "italic (textit)")
-  ("d" (ins-env "definition") "definition")
-  ("x" (ins-env "example") "example")
-  ("X" (ins-env "examples") "examples")
-  ("e" (ins-env "equation") "equation")
-  ("E" (ins-env "exercise") "equation")
-  ("r" (ins-env "remark") "remark")
-  ("s" (ins-env "statement") "statement")
-  ("p" (ins-env "proof") "proof")
-  ("P" (ins-env "proposition") "proposition")
-  ("t" (ins-helper "\\[ \\begin{tikzcd}\n" "\n\\end{tikzcd} \\]") "tikzcd")
-  ("T" (ins-env "theorem") "theorem")
-  ("o" (insert "^{op}") "^{op}")
-  ("m" (insert "^{-1}") "^{-1}")
-  ("D" (insert "\\cD") "\\cD")
-  ("C" (insert "\\cC") "\\cC")
-  ("u" (ins-helper "\\url{" "}"))
-  ("<ESC>" nil "quit")
-)
-#+end_src
-** hydra: latex expansions              :latex:
-#+begin_src emacs-lisp
-(defun ej/tex-expand-sequence ()
-  (interactive)
-  (let* ((pos (point))
-         (_ (re-search-backward "_[01]"))
-         (end (point))
-         (_ (backward-sexp))
-         (item (buffer-substring-no-properties (point) end))
-         (_ (message "your item: %s" item))
-         (_ (goto-char pos)))
-    (insert (format ", \\dots, %s_" item))))
-
-(setq ej/latex-headers
-      (if (ej/file-exists-p latex-headers-file)
-          (vc--read-lines latex-headers-file) '()))
-
-(defun ej/add-def (header)
-  (save-excursion
-    (search-backward "#+LATEX_HEADER:")
-    (end-of-line 1)
-    (newline)
-    (insert header))
-  (message "added header: %s" header))
-
-(defun ej/introduce-latex-def ()
-  (interactive)
-  (helm
-   :sources  (helm-build-sync-source "Add LATEX-HEADER"
-               :candidates ej/latex-headers
-               :action 'ej/add-def
-               :fuzzy-match t)
-   :buffer "*helm suggestion latex header*"))
-
-(defun ej/sat-latexify-0 (formula)
-  (let ((replaces '(("or" "\\\\lor")
-                    ("and" "\\\\land")
-                    ("not(\\(.\\))" "\\\\ov{\\1}"))))
-    (--reduce-from (s-replace-regexp (car it) (cadr it) acc) formula replaces)))
-
-(defun ej/sat-latexify ()
-  " converts formulas to texified formulas:
-  'x and (z or not(x))' >> 'x \\land (z \\lor \\ov{x})' "
-  (interactive)
-  (search-backward "\\(")
-  (forward-char 3)
-  (let* ((start (point))
-         (_ (end-of-line))
-         (end (point))
-         (_ (kill-region start end))
-         (latexified (ej/sat-latexify-0 (last-killed))))
-    (insert latexified)))
-
-(defhydra ej/hydra-org (:foreign-keys warn :columns 1 :exit t)
-  " Org LaTeX helpers "
-  ("e" ej/tex-expand-sequence "expand tex sequence")
-  ("h" ej/introduce-latex-def "introduce latex header")
-  ("s" ej/sat-latexify "latexify SAT formula")
-  ("r" ej/remove-last-ltximg-latex-preview "Remove last preview")
-  ("R" (ej/remove-last-ltximg-latex-preview 16) "Remove last 16 previews")
-  ("i" ej/org-insert-env/body "insert env ORG hydra")
-  ("I" ej/tex-insert-env/body "insert env TEX hydra")
-  ("l" (switch-to-buffer "*Org PDF LaTeX Output*") "*Org PDF LaTeX Output*" :exit t)
-  ("<ESC>" nil "exit"))
-
-;; (ej/hydra-org/body)
-(global-set-key (kbd "C-s-u") 'ej/hydra-org/body)
-#+end_src
-** hydra: haskell
-#+begin_src emacs-lisp
-(defun ej/haskell-reload ()
-  (interactive)
-  (with-current-buffer "*shell*<1>"
-    (end-of-buffer)
-    (insert ":reload")
-    (comint-send-input)))
-
-(defun ej/haskell-find-first-error ()
-  (interactive)
-  (with-current-buffer "*shell*<1>"
-    (search-backward ":reload")
-    (search-forward "error:")
-    (backward-sexp 3)
-    (let* ((line (string-to-number (thing-at-point 'word)))
-           (_ (progn (forward-sexp 1) (forward-char 1)))
-           (pos (string-to-number (thing-at-point 'word))))
-      (cons line pos))))
-
-(defun ej/haskell-jump-first-error ()
-  (interactive)
-  (let* ((line-pos (ej/haskell-find-first-error)))
-    (goto-line (car line-pos))
-    (beginning-of-line)
-    (forward-char (1- (cdr line-pos)))))
-  
-(defhydra ej/hydra-haskell (:foreign-keys warn :columns 1 :exit t)
-  " Haskell helpers "
-  ("h" ej/haskell-reload "reload")
-  ("e" ej/haskell-jump-first-error "jump first error")
-)
-  
-(global-set-key (kbd "C-s-h") 'ej/hydra-haskell/body)
-#+end_src
-** nav-nav
-Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
-#+begin_src emacs-lisp
-(defun ej/configure-nav-nav ()
-  (setq nav-nav-is-switch-layout t)
-  (setq nav-nav-file nav-items-file)
-  (global-set-key (kbd "s-s") 'nav-nav))
-;; todo is it possible choose load-path or quelpa inside use-package?
-;; todo is it possible choose load-path or quelpa inside use-package?
-(if (ej/file-exists-p nav-nav-dir)
-    (use-package nav-nav
-      :after (hydra)
-      :load-path nav-nav-dir
-      :config (ej/configure-nav-nav))
-  (use-package nav-nav
-      :after (hydra)
-      :quelpa (nav-nav :fetcher git :url "https://github.com/evjava/nav-nav.git")
-      :config (ej/configure-nav-nav)))
-#+end_src
 * ORG configuration
 ** cdlatex                              :latex:
 #+begin_src emacs-lisp
@@ -2284,9 +2200,9 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 #+end_src
 ** org-plus-contrib
 #+begin_src emacs-lisp
-(use-package org
-  :ensure org-plus-contrib
-  :pin org)
+; (use-package org
+;   :ensure org-plus-contrib
+;   :pin gnu)
 #+end_src
 ** bindings
 #+begin_src emacs-lisp
@@ -2308,14 +2224,15 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 #+end_src
 ** org-ref                              :latex:
 #+begin_src emacs-lisp
-(require 'ox-bibtex)
-(setq bibtex-dialect 'biblatex)
-;; open pdf with system pdf viewer (works on mac)
-;; todo fix
-(setq bibtex-completion-pdf-open-function
-      (lambda (fpath) (start-process "open" "*open*" "open" fpath)))
-  
-(use-package helm-bibtex)
+;; (use-package ox-bibtex
+;;   :config
+;;   (setq bibtex-dialect 'biblatex)
+;;   ;; open pdf with system pdf viewer (works on mac)
+;;   ;; todo fix
+;;   (setq bibtex-completion-pdf-open-function
+;;         (lambda (fpath) (start-process "open" "*open*" "open" fpath))))
+;;   
+;; (use-package helm-bibtex)
 
 (defun ej/bib-pref (file) 
   (expand-file-name file bibliography-dir))
@@ -2830,6 +2747,137 @@ Replace \"%A\" in FORMAT with English day of week of today,
   :config
   (add-hook 'dired-mode-hook 'org-download-enable)
   )
+#+end_src
+** hydra: org/latex inserters           :inserters:latex:hydra:
+#+begin_src emacs-lisp
+(defun env-inserter (env is-org)
+  (let (
+      (start-fmt (if is-org "#+begin_%s\n" "\\begin{%s}\n"))
+      (end-fmt (if is-org "\n#+end_%s\n" "\n\\end{%s}\n")))
+    (insert (format start-fmt env))
+    (save-excursion (insert (format end-fmt env)))))
+
+(defhydra ej/org-insert-env (:foreign-keys warn :columns 1 :exit t)
+  "Insert..."
+  ("p" (env-inserter "proof" t) "proof")
+  ("t" (env-inserter "theorem" t) "theorem")
+  ("d" (env-inserter "definition" t) "definition")
+  ("l" (env-inserter "lemma" t) "lemma")
+  ("s" (env-inserter "statement" t) "statement")
+  ("e" (env-inserter "equation*" nil) "equation*")
+  ("p" (env-inserter "proof" t) "proof")
+  ("c" (env-inserter "corollary" t) "corollary")
+  ("w" (env-inserter "wtf" t) "wtf")
+  ("b" (insert "#+BEAMER: \\pause\n") "BEAMER pause") 
+  ("<ESC>" nil "quit")
+)
+
+(defun ins-helper (before after)
+  (interactive)
+  (insert before)
+  (save-excursion (insert after)))
+
+(defun ins-env (env)
+  (interactive)
+  (let (
+      (start (format "\\begin{%s}\n  " env))
+      (end (format "\n\\end{%s}" env)))
+    (ins-helper start end)))
+
+(defhydra ej/tex-insert-env (:foreign-keys warn :columns 1 :exit t)
+  "Insert..."
+  ("n" (ins-helper "\\begin{enumerate}\n  \\item " "\n\\end{enumerate}") "num-list (enumerate)")
+  ("l" (ins-helper "\\begin{itemize}\n  \\item " "\n\\end{itemize}") "list (itemize)")
+  ("L" (ins-env "lemma") "lemma")
+  ("b" (ins-helper "\\textbf{" "}") "bold")
+  ("c" (ins-env "corollary") "corollary")
+  ("i" (ins-helper "\\textit{" "}") "italic (textit)")
+  ("d" (ins-env "definition") "definition")
+  ("x" (ins-env "example") "example")
+  ("X" (ins-env "examples") "examples")
+  ("e" (ins-env "equation") "equation")
+  ("E" (ins-env "exercise") "equation")
+  ("r" (ins-env "remark") "remark")
+  ("s" (ins-env "statement") "statement")
+  ("p" (ins-env "proof") "proof")
+  ("P" (ins-env "proposition") "proposition")
+  ("t" (ins-helper "\\[ \\begin{tikzcd}\n" "\n\\end{tikzcd} \\]") "tikzcd")
+  ("T" (ins-env "theorem") "theorem")
+  ("o" (insert "^{op}") "^{op}")
+  ("m" (insert "^{-1}") "^{-1}")
+  ("D" (insert "\\cD") "\\cD")
+  ("C" (insert "\\cC") "\\cC")
+  ("u" (ins-helper "\\url{" "}"))
+  ("<ESC>" nil "quit")
+)
+#+end_src
+** hydra: latex expansions              :latex:hydra:
+#+begin_src emacs-lisp
+(defun ej/tex-expand-sequence ()
+  (interactive)
+  (let* ((pos (point))
+         (_ (re-search-backward "_[01]"))
+         (end (point))
+         (_ (backward-sexp))
+         (item (buffer-substring-no-properties (point) end))
+         (_ (message "your item: %s" item))
+         (_ (goto-char pos)))
+    (insert (format ", \\dots, %s_" item))))
+
+(setq ej/latex-headers
+      (if (ej/file-exists-p latex-headers-file)
+          (vc--read-lines latex-headers-file) '()))
+
+(defun ej/add-def (header)
+  (save-excursion
+    (search-backward "#+LATEX_HEADER:")
+    (end-of-line 1)
+    (newline)
+    (insert header))
+  (message "added header: %s" header))
+
+(defun ej/introduce-latex-def ()
+  (interactive)
+  (helm
+   :sources  (helm-build-sync-source "Add LATEX-HEADER"
+               :candidates ej/latex-headers
+               :action 'ej/add-def
+               :fuzzy-match t)
+   :buffer "*helm suggestion latex header*"))
+
+(defun ej/sat-latexify-0 (formula)
+  (let ((replaces '(("or" "\\\\lor")
+                    ("and" "\\\\land")
+                    ("not(\\(.\\))" "\\\\ov{\\1}"))))
+    (--reduce-from (s-replace-regexp (car it) (cadr it) acc) formula replaces)))
+
+(defun ej/sat-latexify ()
+  " converts formulas to texified formulas:
+  'x and (z or not(x))' >> 'x \\land (z \\lor \\ov{x})' "
+  (interactive)
+  (search-backward "\\(")
+  (forward-char 3)
+  (let* ((start (point))
+         (_ (end-of-line))
+         (end (point))
+         (_ (kill-region start end))
+         (latexified (ej/sat-latexify-0 (last-killed))))
+    (insert latexified)))
+
+(defhydra ej/hydra-org (:foreign-keys warn :columns 1 :exit t)
+  " Org LaTeX helpers "
+  ("e" ej/tex-expand-sequence "expand tex sequence")
+  ("h" ej/introduce-latex-def "introduce latex header")
+  ("s" ej/sat-latexify "latexify SAT formula")
+  ("r" ej/remove-last-ltximg-latex-preview "Remove last preview")
+  ("R" (ej/remove-last-ltximg-latex-preview 16) "Remove last 16 previews")
+  ("i" ej/org-insert-env/body "insert env ORG hydra")
+  ("I" ej/tex-insert-env/body "insert env TEX hydra")
+  ("l" (switch-to-buffer "*Org PDF LaTeX Output*") "*Org PDF LaTeX Output*" :exit t)
+  ("<ESC>" nil "exit"))
+
+;; (ej/hydra-org/body)
+(global-set-key (kbd "C-s-u") 'ej/hydra-org/body)
 #+end_src
 * Private config
 #+begin_src emacs-lisp
