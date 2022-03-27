@@ -152,6 +152,7 @@
 (defvar nav-nav-dir nil "nav-nav path")
 (defvar nav-items-file nil "path to nav-nav-file")
 (defvar latex-headers-file nil "latex headers file for completions")
+(defvar asmtools-jar-path nil "path to amstools.jar")
 
 (load-ignore-error "~/.emacs.d.private/private-paths.el")
 #+end_src
@@ -697,7 +698,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
  (local-set-key (kbd "C-s-i") #'ej/hydra-cpp/body)
  )
 #+end_src
-** C++: hydra                           :hydra:
+** C++: hydra                           :cpp:hydra:
 #+begin_src emacs-lisp
 (add-hook 'c-mode-common-hook 'ej/c-mode-common-hook)
 
@@ -716,7 +717,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   (next-line 1))
 
 (defhydra ej/hydra-cpp (:foreign-keys warn :columns 1 :exit t)
-  " Haskell helpers "
+  " C++ helpers "
   ("i" ej/insert-dbg "insert debug")
   ("g" dumb-jump-go "jump-go")
   ("b" dumb-jump-back "jump-back")
@@ -934,6 +935,50 @@ https://github.com/volrath/treepy.el
   :config
   (eros-mode 1))
 #+end_src
+** java: amstools
+#+begin_src emacs-lisp
+(defvar tmp-java-dir "/tmp/java")
+
+(defun ej/files-with-suf (dir suf)
+  (let* ((names (directory-files dir))
+         (f-names (--filter (string-suffix-p suf it) names)))
+    (--map (expand-file-name it dir) f-names)))
+         
+(defun ej/next-temp-java-file ()
+  (when (not (file-exists-p tmp-java-dir))
+    (make-directory tmp-java-dir))
+  (let* ((files (directory-files tmp-java-dir))
+         (j-files (ej/files-with-ext tmp-java-dir ".java"))
+         (new-j-name (format "%02d.java" (length j-files))))
+    (expand-file-name new-j-name tmp-java-dir)))
+
+(defun ej/src-code-with-asmtools ()
+  (interactive)
+  (let* ((_ (org-edit-src-code))
+         (code (ej/copy-buffer))
+         (_ (org-edit-src-abort))
+         (j-fname (ej/next-temp-java-file))
+         (c-files-old (ej/files-with-ext tmp-java-dir ".class"))
+         (_ (mapcar #'delete-file-quite c-files-old))
+         (_ (ej/write-string-to-file code j-fname))
+         (mode (completing-read "Choose mode" '("jdis" "jdec")))
+         (_ (shell-command-to-string (format "javac %s" j-fname)))
+         (c-files-upd (ej/files-with-ext tmp-java-dir ".class"))
+         (c-selected (if (= (length c-files-upd) 1)
+                         (car c-files-upd)
+                       (completing-read "Choose class" c-files-upd)))
+         (asm-cmd (format "java -jar %s %s %s" asmtools-jar-path mode c-selected))
+         (res (shell-command-to-string asm-cmd)))
+    (message "b-name: %s" (buffer-name))
+    (if (one-window-p) (split-window-right))
+    (other-window 1)
+    (switch-to-buffer "*asm-buffer*")
+    (message "b-name: %s" (buffer-name))
+    (erase-buffer)
+    (insert res)
+    (other-window 1)
+    (message "Done!")))
+#+end_src
 * Modules
 <<modules>>
 ** reverse-im
@@ -944,7 +989,7 @@ https://github.com/volrath/treepy.el
   (reverse-im-activate "russian-computer"))
 #+end_src
 ** dashboard
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 (use-package dashboard
   :config
   (dashboard-setup-startup-hook))
@@ -1473,10 +1518,10 @@ Inserts time in different formats.
   (4  . "date: %d.%m.%y-%H:%M:%S")
   (5  . "%d.%m.%y-%H:%M")
   (6  . "%d.%m.%y-%H:%M:%S")
-  (7  . "resolution(%d.%m.%y-%H:%M): ")
+  (7 . "%Y-%m-%d")
   (8  . "%H:%M:%S")
   (9  . "[%Y-%m-%d %a %H:%M]")
-  (10 . "%Y-%m-%d")
+  (10  . "resolution(%d.%m.%y-%H:%M): ")
   (11 . "%a <Dec> %d %H:%M:%S %Y")
   (16 . "%d.%m.%y %a")
   ))
@@ -1974,6 +2019,10 @@ same directory as the org-buffer and insert a link to this file."
     (search-forward cc)
     (backward-char)))
 (global-set-key (kbd "s-[") #'ej/search-next)
+
+(defun ej/copy-buffer ()
+  " copy buffer content "
+  (buffer-substring-no-properties (point-min) (point-max)))
 #+end_src
 ** punto
 #+begin_src emacs-lisp
@@ -2083,8 +2132,9 @@ same directory as the org-buffer and insert a link to this file."
 
 (defhydra ej/hydra-buffers-windows (:foreign-keys warn :columns 1)
   " Hydra navigation stuff "
-  ("1" telega "TELEGA" :exit t)
+  ("1" ej/reopen "reopen" :exit t)
   ("2" ej/split-show-dired "split and dired" :exit t)
+  ("3" ej/src-code-with-asmtools "open code block with asmtools" :exit t)
   ("e" split-window-horizontally "split horizontally")
   ("v" split-window-vertically "split vertically")
   ("o" other-window "other window")
@@ -2369,6 +2419,7 @@ Also I add this to document:
    (latex . t)
    (org . t)
    (lisp . t)
+   (coq . t)
    ))
 
 (defun ej/disable-confirm-babel-evaluate ()
