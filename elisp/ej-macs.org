@@ -807,10 +807,12 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
            (var-unq (car sexp-unq))
            (val-unq (cadr sexp-unq))
            (ev-val-unq (eval val-unq))
-           (tp (type-of ev-val-unq)))
-			(eval `(setq ,var-unq ev-val-unq))
-      (message "%s >> %s :: %s" var-unq ev-val-unq tp)
-      (eros--eval-overlay (format "%s :: %s" ev-val-unq tp) (point))
+           (tp (type-of ev-val-unq))
+           (_  (eval `(setq ,var-unq ev-val-unq)))
+           (_ (message "%s >> %s :: %s" var-unq ev-val-unq tp))
+           (msg-display (format "%s :: %s" ev-val-unq tp))
+           )
+      (eros--eval-overlay msg-display (point))
       (list var-unq ev-val-unq))))
 
 (defun ej/setq-last-sexp (var-unq)
@@ -836,11 +838,13 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   (interactive)
   (kill-new (thing-at-point 'sexp)))
 
-(defun ej/setq-last-let-forward ()
+(defun ej/setq-forward-lets ()
   (interactive)
   (ej/setq-let)
   (condition-case nil 
-      (forward-sexp) 
+      (progn
+        (forward-sexp)
+        (ej/setq-forward-lets))
     (error nil)))
 
 (defun ej/eval-last-sexp-forward ()
@@ -853,6 +857,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   (interactive)
   (let* ((sexp (read (thing-at-point 'sexp)))
          (fun-def (symbol-function (car sexp)))
+         (_ (message "fun-def: %s" fun-def))
          (fun-args (cl-remove '&optional (cadr fun-def)))
          (assignments (->> (-zip-fill nil fun-args (cdr sexp))
                            (mapcar #'-cons-to-list)
@@ -900,11 +905,12 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 (defhydra ej/elisp-interactive (:columns 4 :foreign-keys warn :exit t)
   "Emacs Lisp interactive stuff"
   ("g" ej/jump-go "dumb-jump-go wrapper")
+  ("b" dumb-jump-back "dumb-jump-back")
   ("r" ej/eval-replace "replace last sexp")
   ("s" ej/setq-last-sexp "setq last sexp")
   ("m" ej/message-last-sexp "message last sexp")
   ("l" ej/setq-let "setq last let")
-  ("L" ej/setq-last-let-forward "setq last let and forward" :exit nil)
+  ("L" ej/setq-forward-lets "setq last let and forward" :exit nil)
   ("k" ej/setq-killed "setq killed")
   ("w" ej/copy-sexp-at-point "copy last sexp")
   ("E" ej/eval-last-sexp-forward "eval last sexp and forward" :exit nil)
@@ -2527,6 +2533,13 @@ To fix =org-export--get-inbuffer-options: Symbol’s function definition is void
 (add-to-list 'org-latex-classes
                 '("compact-report2"
                "\\documentclass[a4paper,11pt]{extarticle}"
+                  ("\\section{%s}" . "\\chapter*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
+						 '("a6-report"
+							 "\\documentclass[15pt]{article}"
                   ("\\section{%s}" . "\\chapter*{%s}")
                   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
                   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
