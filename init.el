@@ -1,7 +1,4 @@
-;;;; ----- base
-(setq gc-cons-threshold (* 4000 1024 1024))
-(defun ej/emacs-path (name) 
-  (expand-file-name name user-emacs-directory))
+;; (setq gc-cons-threshold (* 4000 1024 1024))
 
 ;;;; ----- packages
 (require 'package)
@@ -36,10 +33,10 @@
     (exec-path-from-shell-initialize)))
 
 ;;;; ----- load-path
-(add-to-list 'load-path (ej/emacs-path "elisp"))
-(add-to-list 'load-path (ej/emacs-path "elpa"))
-(add-to-list 'load-path (ej/emacs-path "non-elpa"))
-(let ((default-directory (ej/emacs-path "elpa")))
+(add-to-list 'load-path (locate-user-emacs-file "elisp"))
+(add-to-list 'load-path (locate-user-emacs-file "elpa"))
+(add-to-list 'load-path (locate-user-emacs-file "non-elpa"))
+(let ((default-directory (locate-user-emacs-file "elpa")))
   (normal-top-level-add-subdirs-to-load-path))
 
 ;;;; ----- ej-macs.org
