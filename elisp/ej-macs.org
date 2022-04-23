@@ -17,6 +17,10 @@
   - =org-download=
   - ej/search-next -- search next entered character
   - kill-sexp-at-point
+  - positions
+    - current point  - =(point)=
+    - current line   - =(line-number-at-pos)=
+    - current indent - =(current-column)=
 * Early config
 ** Basic modules
 #+begin_src emacs-lisp
@@ -830,9 +834,11 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 (defun ej/setq-last-sexp (var-unq)
   (interactive "senter var name: ")
   (save-excursion
-    (let* ((sexp-unq (ej/cur-sexp)))
-    (eval `(setq ,(read v) ',sexp-unq))
-    (message "%s >> %s" var-unq (symbol-value var-unq)))))
+    (let* ((sexp-unq (ej/cur-sexp))
+           (setq-form `(setq ,(read var-unq) ',sexp-unq)))
+      (msg 'setq-form)
+      (eval setq-form)
+      (message "%s >> %s" var-unq (symbol-value var-unq)))))
 
 (defun ej/setq-killed (var)
   (interactive "senter var name: ")
@@ -859,10 +865,13 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
         (ej/setq-forward-lets))
     (error nil)))
 
+(setq ej/elisp-prettifier nil)
 (defun ej/show-val (val)
-  (cond
-   ((listp val) (format "[len=%d] %S" (length val) val))
-   (t           (format "%S" val))))
+  (let* ((prettified-val (and ej/elisp-prettifier (funcall ej/elisp-prettifier val))))
+    (cond
+     (prettified-val prettified-val)
+     ((listp val)    (format "[len=%d] %S" (length val) val))
+     (t              (format "%S" val)))))
 
 (defvar annotate-color "#5dbb63")
 (defun ej/let-annotate-hard ()
@@ -888,7 +897,10 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 (defun ej/setq-forward-lets-hard ()
   (interactive)
   (set-mark (point))
-  (ej/defun-annotate-args)
+  (condition-case nil
+      ;; todo fix
+      (ej/defun-annotate-args)
+    (error nil))
   (condition-case nil
       (while t
 				(ej/let-annotate-hard)
@@ -920,7 +932,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   (save-excursion
     (beginning-of-defun)
     (let* ((fun-sexp (sexp-at-point))
-           (args (caddr fun-sexp))
+           (args (-remove-item '&optional (caddr fun-sexp)))
            (_ (progn (search-forward " (" nil nil 1) (backward-char)))
            (poz-a (point))
            (_ (forward-sexp))
@@ -928,8 +940,8 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
            (ov (make-overlay poz-a poz-b))
            (_ (overlay-put ov 'face `(:foreground ,annotate-color)))
            (max-len-arg (number-to-string (-max (--map (length (symbol-name it)) args))))
-           (fmt (s-concat "  (%" max-len-arg "s => %S)"))
-           (args-vals (--map (format fmt it (eval it)) args))
+           (fmt (s-concat "  (%" max-len-arg "s => %s)"))
+           (args-vals (--map (format fmt it (ej/show-val (eval it))) args))
            (args-info (s-join "\n" args-vals))
            (_ (overlay-put ov 'display (format "(\n%s\n)" args-info)))
            ) nil)))
@@ -956,6 +968,17 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   (indent-for-tab-command)
   (next-line 1))
 
+(defun ej/indent-until-end-of-sexp ()
+  (interactive)
+  (back-to-indentation)
+  (let* ((_ (forward-sexp 1))
+         (sexp-end-line (line-number-at-pos))
+         (_ (backward-sexp 1)))
+    (while (< (line-number-at-pos) sexp-end-line)
+      (ej/indent-and-next-line))
+		(indent-for-tab-command)
+    (end-of-line)))
+
 (defun ej/comment-and-next-line ()
   (interactive)
   (beginning-of-line 1)
@@ -973,6 +996,24 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
                      (forward-sexp 1)
                      (dumb-jump-go)))
      (t (error "not supported")))))
+
+(defun ej/insert-map-on-first ()
+  " debug --map helper "
+  (interactive)
+  (let* ((sexp (sexp-at-point))
+         (_ (when (not (equal (car sexp) '--map))
+              (error "only --map forms supported")))
+         (form (cadr sexp))
+         (list (caddr sexp))
+         (res (cl-subst (list 'car list) 'it form))
+         )
+    (newline 1 t)
+    (insert (format ";; %s" res))))
+
+(defun ej/insert-ert-template (defun-name)
+	(interactive "sEnter defun name: ")
+	(insert (format "(ert-deftest test-%s ()\n" defun-name))
+	(insert "  (should (equal (" defun-name))
 
 (defhydra ej/elisp-interactive (:columns 4 :foreign-keys warn :exit t)
   "Emacs Lisp interactive stuff"
@@ -996,6 +1037,10 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   ("d" ej/remove-overlays "remove overlays")
   ("T" ej/toggle-el-test "toggle .el or -test.el")
   ("TAB" ej/indent-and-next-line "Indent and next line" :exit nil)
+  ("<C-tab>" ej/indent-until-end-of-sexp "Indent until end of sexp" :exit t)
+	("<f5>" trace-function "trace-function")
+  ("<f2>" ej/insert-map-on-first "insert map on first")
+	("<f9>" ej/insert-ert-template "insert ert template")
   ("<ESC>" nil "exit")
   ("C-n" (next-line) "exit")
   )
