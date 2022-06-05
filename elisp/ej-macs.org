@@ -370,8 +370,8 @@
   (use-package helm-switch-shell)
   (use-package helm-system-packages)
   (use-package helm-org-rifle
-    :config
-    (define-key org-mode-map (kbd "C-c C-j") 'helm-org-rifle))
+    :config)
+    ;; (define-key org-mode-map (kbd "C-c C-j") 'helm-org-rifle))
   )
 (require 'helm)
 
@@ -784,7 +784,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
      (mapc
       (lambda (v)
         (condition-case nil
-            (message "DBG: %s is <%s>" v (eval v))
+            (message "DBG: %s is <%S>" v (eval v))
           (error (message "DBG: %s not exists..." v))))
       (list ,@vars))
      nil))
@@ -891,8 +891,16 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 				 (ov (make-overlay poz-a poz-b))
 				 (_ (condition-case nil (forward-sexp) (error nil)))
 				 (_ (overlay-put ov 'face `(:foreground ,annotate-color)))
-				 (_ (overlay-put ov 'display (format "%s %S\n%s" pref l-val ind-s))))
+         (pretty-l-val (if (< (length l-val) 1000) l-val (substring-no-properties l-val 0 1000)))
+				 (_ (overlay-put ov 'display (format "%s %S\n%s" pref pretty-l-val ind-s))))
 		nil)))
+
+(defun ej/forward-sexp-if-can ()
+  (condition-case nil
+      (progn
+        (forward-sexp 1)
+        t)
+    (error nil)))
 
 (defun ej/setq-forward-lets-hard ()
   (interactive)
@@ -901,12 +909,10 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
       ;; todo fix
       (ej/defun-annotate-args)
     (error nil))
-  (condition-case nil
-      (while t
-				(ej/let-annotate-hard)
-				(forward-sexp 1)
-        )
-    (error nil)))
+  (ej/let-annotate-hard)
+  (while (ej/forward-sexp-if-can)
+		(ej/let-annotate-hard)
+    ))
 
 (defun ej/eval-last-sexp-forward ()
   (interactive)
@@ -926,6 +932,15 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
          (expr `(setq ,@assignments-99)))
     (eval expr)
     (message "evaluated: %s" expr)))
+
+(defun ej/defun-and-args ()
+  (save-excursion
+    (beginning-of-defun)
+    (let* ((fun-sexp (sexp-at-point))
+           (args (-remove-item '&optional (caddr fun-sexp)))
+           (fun-name (cadr fun-sexp))
+           (res (cons fun-name args))
+           ) res)))
 
 (defun ej/defun-annotate-args ()
   (interactive)
@@ -1012,8 +1027,29 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 
 (defun ej/insert-ert-template (defun-name)
 	(interactive "sEnter defun name: ")
+  (message "(ej/insert-ert-template %s)" defun-name)
 	(insert (format "(ert-deftest test-%s ()\n" defun-name))
 	(insert "  (should (equal (" defun-name))
+
+(defun ej/insert-message-defun-call ()
+  (interactive)
+  (let* ((f-name-args (ej/defun-and-args))
+         (f-name (car f-name-args))
+         (f-args (cdr f-name-args))
+         (pretty-args (s-join " " (--map (format "%S" it) f-args)))
+         (pretty-args-fmt (s-join " " (-repeat (length f-args) "%s")))
+         (res (format "(message \"(%s %s)\" %s)" f-name pretty-args-fmt pretty-args))
+         (_ (insert res))
+         ) t))
+
+(defun ej/rerun-setq-let-in-defun ()
+  (interactive)
+  (save-excursion
+    (ej/remove-overlays)
+    (beginning-of-defun)
+    (search-forward "let*")
+    (end-of-line)
+    (ej/setq-forward-lets-hard)))
 
 (defhydra ej/elisp-interactive (:columns 4 :foreign-keys warn :exit t)
   "Emacs Lisp interactive stuff"
@@ -1025,6 +1061,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   ("l" ej/setq-let "setq last let")
   ("L" ej/setq-forward-lets "setq last let and forward" :exit t)
 	("i" ej/setq-forward-lets-hard "setq lets hard")
+  ("!" ej/rerun-setq-let-in-defun "rerun setq-let in current defun")
   ("k" ej/setq-killed "setq killed")
   ("w" ej/copy-sexp-at-point "copy last sexp")
   ("E" ej/eval-last-sexp-forward "eval last sexp and forward" :exit nil)
@@ -1040,6 +1077,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   ("<C-tab>" ej/indent-until-end-of-sexp "Indent until end of sexp" :exit t)
 	("<f5>" trace-function "trace-function")
   ("<f2>" ej/insert-map-on-first "insert map on first")
+  ("<f3>" ej/insert-message-defun-call "insert message defun call")
 	("<f9>" ej/insert-ert-template "insert ert template")
   ("<ESC>" nil "exit")
   ("C-n" (next-line) "exit")
@@ -1104,6 +1142,12 @@ https://github.com/volrath/treepy.el
     (insert res)
     (other-window 1)
     (message "Done!")))
+#+end_src
+** coq
+#+begin_src emacs-lisp
+(use-package proof-general
+	:custom
+	(proof-splash-enable nil))
 #+end_src
 * Modules
 <<modules>>
@@ -1374,6 +1418,9 @@ https://github.com/volrath/treepy.el
   (message "pdf-tools configured")
   :bind
   (:map pdf-view-mode-map ("C-s" . isearch-forward))
+  (:map pdf-view-mode-map ("C-s-a" . pdf-annot-add-highlight-markup-annotation))
+  (:map pdf-view-mode-map ("C-v" . pdf-view-scroll-up-or-next-page))
+  (:map pdf-view-mode-map ("M-v" . pdf-view-scroll-down-or-previous-page))
 )
 ;; loading pdf-tools only on first pdf open
 (add-to-list 'auto-mode-alist '("\\.pdf\\'" . pdf-tools-install))
@@ -2224,7 +2271,7 @@ same directory as the org-buffer and insert a link to this file."
   (interactive)
   (let* ((p-mode  (not is-presentation-mode))
          (m-line  (if p-mode nil default-mode-line-format))
-         (f-title (if p-mode nil default-frame-title-format)))
+         (f-title (if p-mode "emacs" default-frame-title-format)))
     (setq-default mode-line-format     m-line)
     (setq         mode-line-format     m-line)
     (setq         frame-title-format   f-title)
@@ -2435,6 +2482,9 @@ same directory as the org-buffer and insert a link to this file."
 )
 #+end_src
 ** latex pdf export                     :latex:
+*** hyperref
+unicode=true is useful for cyrillic in links.
+
 #+begin_src emacs-lisp
 (setq org-latex-hyperref-template "\\hypersetup{
  pdfauthor={%a},
@@ -2446,21 +2496,31 @@ same directory as the org-buffer and insert a link to this file."
  colorlinks=true,
  linkcolor=blue,
  linkbordercolor=red,
- urlbordercolor=cyan
+ urlbordercolor=cyan,
+ unicode=true
 }
 ")
+#+end_src
+*** ORG-LATEX-PDF-PROCESS
+- bibtex for simple pdf
+- biber for beamer (due to some error bibliography is empty when bibtex enabled)
 
-
+#+begin_src emacs-lisp
 (setq org-latex-pdf-process
       '("pdflatex -interaction nonstopmode -output-directory %o %f"
         "bibtex %b"
+				;;; "biber %b"
         "pdflatex -interaction nonstopmode -output-directory %o %f"
         "pdflatex -interaction nonstopmode -output-directory %o %f"))
-
+#+end_src
+**** bibliography?
+#+begin_src emacs-lisp
 (defun ej/activate-org-latex-pdf-process-with-bibliography ()
   (interactive)
   (setq org-latex-pdf-process (list "latexmk -shell-escape -bibtex -f -pdf %f")))
-
+#+end_src
+*** beamer or simple pdf
+#+begin_src emacs-lisp
 (defun ej/export-to-pdf-or-beamer ()
   (interactive)
   (let* ((is-slides (condition-case nil
@@ -2566,6 +2626,8 @@ To fix =org-export--get-inbuffer-options: Symbol’s function definition is void
     (if (eq org-preview-latex-default-process 'dvipng) 'imagemagick 'dvipng))
   (message (format "updated org-preview-latex: %s" org-preview-latex-default-process)))
 
+;; (plist-put org-format-latex-options :scale 2.0)
+
 (defun ej/refresh-latex-preview ()
   (interactive)
   (delete-directory org-latex-preview-dir t t))
@@ -2658,6 +2720,13 @@ To fix =org-export--get-inbuffer-options: Symbol’s function definition is void
                   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
 
 (add-to-list 'org-latex-classes
+                '("compact-report3"
+               "\\documentclass[a4paper,11pt]{extarticle}"
+                  ("\\section{%s}" . "\\chapter*{%s}")
+                  ("\\subsection{%s}" . "\\subsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
 						 '("a6-report"
 							 "\\documentclass[15pt]{article}"
                   ("\\section{%s}" . "\\chapter*{%s}")
@@ -2729,6 +2798,14 @@ To fix =org-export--get-inbuffer-options: Symbol’s function definition is void
                ))
 
 (add-to-list 'org-latex-classes
+             '("diplom-report"
+               "\\documentclass[12pt]{amsart}"
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ))
+
+(add-to-list 'org-latex-classes
              '("book"
                "\\documentclass{book}"
                ("\\part{%s}" . "\\part*{%s}")
@@ -2778,7 +2855,7 @@ To fix =org-export--get-inbuffer-options: Symbol’s function definition is void
     (add-hook 'after-save-hook 'org-latex-export-to-pdf nil t)
     (message "Enabled org html export on save for current buffer...")))
 
-(add-hook 'org-export-before-processing-hook 'ej/org-inline-css-hook)
+;; (add-hook 'org-export-before-processing-hook 'ej/org-inline-css-hook)
 #+end_src
 ** org add line item
 <<org-add-line-item>>
@@ -3058,6 +3135,8 @@ Replace \"%A\" in FORMAT with English day of week of today,
   ("i" ej/org-insert-env/body "insert env ORG hydra")
   ("I" ej/tex-insert-env/body "insert env TEX hydra")
   ("l" (switch-to-buffer "*Org PDF LaTeX Output*") "*Org PDF LaTeX Output*" :exit t)
+  ("d" org-ref-bibtex-new-entry/doi-insert-bibtex-and-exit "insert by DOI")
+  ("t" (insert "^{\\theta}") "insert theta")
   ("<ESC>" nil "exit"))
 
 ;; (ej/hydra-org/body)
