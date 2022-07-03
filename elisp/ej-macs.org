@@ -191,7 +191,6 @@
 (global-set-key (kbd "<f8>") 'kill-this-buffer)
 (global-set-key (kbd "<f9>") 'sort-lines)
 (global-set-key (kbd "<f10>") 'open-in-external-app)
-(global-set-key (kbd "<f12>") 'ej/punto)
 (global-set-key (kbd "M-j") 'dabbrev-expand)
 
 (global-set-key (kbd "<C-kp-5>") 'replace-string)
@@ -634,7 +633,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 ** common
 #+begin_src emacs-lisp
 (setq-default c-basic-offset 2 c-default-style "linux")
-(setq-default tab-width 2 indent-tabs-mode t)
+(setq-default tab-width 2 indent-tabs-mode nil)
 
 ;;; turn on syntax highlighting
 (global-font-lock-mode 1)
@@ -1166,10 +1165,17 @@ https://github.com/volrath/treepy.el
 <<modules>>
 ** reverse-im
 #+begin_src emacs-lisp
+(defun reverse-im-translate-region-2 (start end)
+  " wrapper for reverse-im-translate-region "
+  (interactive "r")
+  (reverse-im-translate-region start end t))
+
 (use-package reverse-im
-  :ensure t
-  :config
-  (reverse-im-activate "russian-computer"))
+ :ensure t
+ :bind
+ ("<f12>" . #'reverse-im-translate-region-2)
+ :config
+ (reverse-im-activate "russian-computer"))
 #+end_src
 ** dashboard
 #+begin_src emacs-lisp :tangle no
@@ -2197,6 +2203,12 @@ same directory as the org-buffer and insert a link to this file."
   (interactive)
   (substring-no-properties (car kill-ring)))
 
+(defun last-killed-ext ()
+  (interactive)
+  (with-temp-buffer
+    (yank)
+    (buffer-substring-no-properties (point-min) (point-max))))
+
 (defun ej/search-next (c)
   (interactive "cEnter character: ")
   (let* ((cc (char-to-string c)))
@@ -2209,37 +2221,6 @@ same directory as the org-buffer and insert a link to this file."
 (defun ej/copy-buffer ()
   " copy buffer content "
   (buffer-substring-no-properties (point-min) (point-max)))
-#+end_src
-** punto
-#+begin_src emacs-lisp
-(defvar my:en-chars0 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-(defvar my:ru-chars0 "абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ")
-
-(defvar my:en-chars "`1234567890-=qwertyuiop[]asdfghjkl;'zxcvbnm,./ ~!@#$%^&*()_+QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?")
-(defvar my:ru-chars "ё1234567890-=йцукенгшщзхъфывапролджэячсмитьбю. Ё!\"№;%:?*()_+ЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ,")
-(defvar my:en-ru-en-table (cl-mapcar 'cons (concat my:en-chars my:ru-chars) (concat my:ru-chars my:en-chars)))
-
-(defun ej/punto-translate-char (ch)
-  (cdr (assoc ch my:en-ru-en-table)))
-
-(defun ej/punto-translate-char-in-str (ch)
-  (cdr (assoc (string-to-char ch) my:en-ru-en-table)))
-
-(defun ej/punto (beg end &optional arg)
-  "todo write doc"
-  (interactive "*r\nP")
-  (save-excursion
-    (goto-char beg)
-    (setq translated-char nil)
-    (while (<= (point) end)
-        (let* ((translated-char (ej/punto-translate-char (char-after (point)))))
-          (if (equal nil translated-char)
-              (forward-char 1)
-            (progn (delete-char 1)
-                   (insert translated-char)))))
-    (unless (equal nil translated-char)
-      (forward-char 1))))
-    
 #+end_src
 ** python: copy section                 :python:
 #+begin_src emacs-lisp
