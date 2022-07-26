@@ -53,4 +53,3 @@
         (org-babel-load-file org-file)))))
 
 (ej/load-config "elisp/ej-macs.org")
-

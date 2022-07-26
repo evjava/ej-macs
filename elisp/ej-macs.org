@@ -503,9 +503,12 @@ Works in Microsoft Windows, Mac OS X, Linux."
 (setq dired-omit-files (concat dired-omit-files "\\|\\.i$"))
 
 (use-package async
-    :config
-    (dired-async-mode 0))
-(setq dired-async-mode nil)
+  :config
+  (dired-async-mode 0))
+(dired-async-mode 0)
+(defadvice load-theme (after run-after-load-theme-hook activate)
+  ;; load-theme for some weird reason changes dired-async-mode
+  (setq dired-async-mode nil))
 ;; tramp
 (setq tramp-default-method "ssh")
 #+end_src
@@ -531,7 +534,6 @@ Works in Microsoft Windows, Mac OS X, Linux."
 ** themes
 #+begin_src emacs-lisp
 ;; https://emacs.stackexchange.com/questions/24088/make-a-function-to-toggle-themes
-
 (defvar *ej/theme-dark* 'tron-legacy)
 (defvar *ej/theme-light* 'leuven)
 (defvar *ej/current-theme* nil)
@@ -546,14 +548,12 @@ Works in Microsoft Windows, Mac OS X, Linux."
 		:config
 		(load-theme 'tron-legacy t)
     (set-face-attribute 'helm-selection nil
-                        :background "#3d5666" :foreground "white")))
-
+                        :background "#3d5666" :foreground "white"))
+  )
 (defun ej/set-light-theme ()
-  (message "setting light theme...")
   (interactive)
+  (message "setting light theme...")
   (load-theme 'leuven t))
-
-
 ;; disable other themes before loading new one
 (defadvice load-theme (before theme-dont-propagate activate)
   "Disable theme before loading new one."
@@ -567,7 +567,6 @@ Works in Microsoft Windows, Mac OS X, Linux."
   (ej/write-string-to-file (format "%s" theme) *ej/theme-location*)
   (ej/sync-cache-dir)
 )
-
 (defun ej/swap-cache-dir ()
   " returns 'dark or 'light  "
   (let* ((imgs-dir (ej/emacs-local-path "ltximg"))
@@ -595,7 +594,6 @@ Works in Microsoft Windows, Mac OS X, Linux."
                        (eq (equal (ej/swap-cache-dir) 'dark)
                            (eq *ej/current-theme* *ej/theme-dark*))))
     (cl-loop until (sync-once))))
-
 (defun ej/toggle-theme ()
   (interactive)
   (let ((theme (if (eq *ej/current-theme* *ej/theme-dark*) 
@@ -634,7 +632,6 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 #+begin_src emacs-lisp
 (setq-default c-basic-offset 2 c-default-style "linux")
 (setq-default tab-width 2 indent-tabs-mode nil)
-
 ;;; turn on syntax highlighting
 (global-font-lock-mode 1)
 
@@ -768,6 +765,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 )
   
 (global-set-key (kbd "C-s-h") 'ej/hydra-haskell/body)
+
 #+end_src
 ** slime                                :clisp:
 #+begin_src emacs-lisp
@@ -1044,10 +1042,12 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 (defun ej/rerun-setq-let-in-defun ()
   (interactive)
   (save-excursion
-    (ej/remove-overlays)
-    (beginning-of-defun)
-    (search-forward "let*")
-    (end-of-line)
+    (save-excursion
+      (ej/remove-overlays)
+      (beginning-of-defun)
+      (search-forward "let*")
+      (end-of-line)
+      (ej/setq-forward-lets-hard))
     (ej/setq-forward-lets-hard)))
 
 ;; :title "Emacs Lisp interactive stuff"
@@ -1426,6 +1426,7 @@ https://github.com/volrath/treepy.el
 ** pdf-tools, org-pdfview
 #+begin_src emacs-lisp
 (use-package pdf-tools
+  :ensure t
   :config
   (setq pdf-info-epdfinfo-program "/usr/local/bin/epdfinfo")
   (add-to-list 'auto-mode-alist '("\\.pdf\\'" . pdf-view-mode))
@@ -1433,7 +1434,7 @@ https://github.com/volrath/treepy.el
 
   (use-package saveplace-pdf-view)
   (save-place-mode 1)
-
+  (add-to-list 'debug-ignored-errors "No such page")
   (message "pdf-tools configured")
   :bind
   (:map pdf-view-mode-map ("C-s" . isearch-forward))
@@ -1788,21 +1789,21 @@ C-u 0 M-x enumerate-rectangle"
 #+end_src
 ** find file helpers
 #+begin_src emacs-lisp
-(defun ej/find-file-goto-line (name &optional line-or-substr)
+(defun ej/find-file-goto-line (name &optional arg-type arg-val)
   (interactive)
-  (if (not (null name))
-      (find-file name))
-  (if line-or-substr 
-      (if 
-          (stringp line-or-substr)
-          (search-forward line-or-substr)
-        (goto-line line-or-substr))))
+  (find-file name)
+  (pcase arg-type
+   (:pos (goto-char arg-val))
+   (:line (goto-line arg-val))
+   (:str (search-forward arg-val)))
+  (end-of-line))
+
 (defalias 'g 'ej/find-file-goto-line)
 (defalias 'ffap 'find-file-at-point)
 
-(defun ej/find-file-goto-line-notes (name line-or-substr)
+(defun ej/find-file-goto-line-notes (name &optional arg-type arg-val)
   (interactive)
-  (ej/find-file-goto-line name line-or-substr)
+  (ej/find-file-goto-line name arg-type arg-val)
   (org-cycle 2))
 (defalias 'gur 'ej/find-file-goto-line-notes)
 #+end_src
@@ -2415,12 +2416,6 @@ same directory as the org-buffer and insert a link to this file."
 (global-set-key (kbd "C-c c") 'org-capture)
 
 #+end_src
-** org-plus-contrib
-#+begin_src emacs-lisp
-; (use-package org
-;   :ensure org-plus-contrib
-;   :pin gnu)
-#+end_src
 ** bindings
 #+begin_src emacs-lisp
 (defun ej/org-hook ()
@@ -2428,7 +2423,6 @@ same directory as the org-buffer and insert a link to this file."
   (local-set-key (kbd "<C-return>") 'ej/add-line-item)
   (local-set-key (kbd "<C-S-return>") 'ej/add-line-item-reverse)
   (local-set-key (kbd "C-x w") 'ej/wrap-src)
-  (local-set-key (kbd "C-s-n") 'ej/new-note)
 
   (local-set-key (kbd "C-M-x") 'eval-defun)
   (local-set-key (kbd "C-M-x") 'eval-defun)
@@ -2450,6 +2444,7 @@ same directory as the org-buffer and insert a link to this file."
 ;;         (lambda (fpath) (start-process "open" "*open*" "open" fpath))))
 ;;   
 ;; (use-package helm-bibtex)
+
 
 (defun ej/bib-pref (file) 
   (expand-file-name file bibliography-dir))
@@ -2599,7 +2594,7 @@ Also I add this to document:
    (latex . t)
    (org . t)
    (lisp . t)
-   (coq . t)
+   ;; (coq . t)
    ))
 
 (defun ej/disable-confirm-babel-evaluate ()
@@ -2915,22 +2910,6 @@ Simplifies filling of (nested) checklist.
           (insert "\n"))
       (insert "#+end_src\n"))))
 
-(defun ej/new-note (mode)
-  "insert note header, time: 29.11.18-14:46:07"
-  (interactive "p")
-  ;; todo assert org
-  (beginning-of-buffer)
-  (while (looking-at "[\n#]")
-    (end-of-line)
-    (forward-char))
-  (insert "\n")
-  (previous-line)
-  (insert "** log\n")
-  (ej/insert-time 4)
-  (insert (cond ((eq mode 1) "\ntags: ")
-                ((eq mode 4) "\ntitle: ")
-                (t "\n"))))
-
 (defun ej/insert-kotlin-before-after ()
   (interactive)
   (insert "\n*** before\n#+begin_src kotlin\n\n#+end_src\n*** after\n#+begin_src kotlin\n\n#+end_src"))
@@ -3038,7 +3017,6 @@ Replace \"%A\" in FORMAT with English day of week of today,
       (start (format "\\begin{%s}\n  " env))
       (end (format "\n\\end{%s}" env)))
     (ins-helper start end)))
-
 (defhydra ej/tex-insert-env (:foreign-keys warn :columns 1 :exit t)
   "Insert..."
   ("n" (ins-helper "\\begin{enumerate}\n  \\item " "\n\\end{enumerate}") "num-list (enumerate)")
