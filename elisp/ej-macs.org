@@ -505,10 +505,11 @@ Works in Microsoft Windows, Mac OS X, Linux."
 (use-package async
   :config
   (dired-async-mode 0))
-(dired-async-mode 0)
 (defadvice load-theme (after run-after-load-theme-hook activate)
   ;; load-theme for some weird reason changes dired-async-mode
   (setq dired-async-mode nil))
+;; (debug-on-variable-change 'dired-async-mode)
+
 ;; tramp
 (setq tramp-default-method "ssh")
 #+end_src
@@ -1017,13 +1018,16 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
               (error "only --map forms supported")))
          (form (cadr sexp))
          (list (caddr sexp))
-         (res (cl-subst (list 'car list) 'it form))
+         (res (cl-subst (list 'elt list 0) 'it form))
          )
     (newline 1 t)
     (insert (format ";; %s" res))))
 
 (defun ej/insert-ert-template (defun-name)
-	(interactive "sEnter defun name: ")
+  (interactive (let* ((default-candidate (last-killed))
+                      (user-input (read-string (format "Enter defun name: (default: [%s]) " default-candidate)))
+                      (res (if (= 0 (length user-input)) default-candidate user-input))
+                      ) (list res)))
   (message "(ej/insert-ert-template %s)" defun-name)
 	(insert (format "(ert-deftest test-%s ()\n" defun-name))
 	(insert "  (should (equal (" defun-name))
@@ -1538,7 +1542,8 @@ Simple goto-definition
                                   backward-word forward-word forward-char backward-char other-window
                                   save-buffer move-end-of-line org-delete-backward-char set-mark-command
                                   isearch-forward forward-sexp dired-next-line scroll-up-command org-cycle
-                                  dired-previous-line backward-delete-char-untabify move-beginning-of-line))
+                                  dired-previous-line backward-delete-char-untabify move-beginning-of-line
+                                  mwheel-scroll ignore))
   )
 #+end_src
 * Functions
@@ -1824,7 +1829,6 @@ C-u 0 M-x enumerate-rectangle"
 (defun ej/select-nth-file (&optional file-idx)
   (interactive)
   (revert-buffer)
-  (message (format "%s" file-idx))
   (let* (
          (idx (if (null file-idx) 0 (1- file-idx)))
          (dir default-directory)
@@ -1832,9 +1836,10 @@ C-u 0 M-x enumerate-rectangle"
                      (--filter (file-regular-p (expand-file-name (car it) dir)))
                      (--sort (not (time-less-p (nth 6 it) (nth 6 other))))))
          (nth-edited (car (nth idx files))))
-    (message nth-edited)
-    (beginning-of-buffer)
-    (search-forward nth-edited)))
+    (when nth-edited
+      (message nth-edited)
+      (beginning-of-buffer)
+      (search-forward nth-edited))))
 #+end_src
 ** diff-helper
 #+begin_src emacs-lisp
@@ -1961,7 +1966,6 @@ searches all buffers."
               (car (last (split-string file-name "/")))
             file-name)))
      (kill-new prepared-file-name)))
-(buffer-file-name)
 (defalias 'fname 'ej/copy-buffer-file-name)
 (defalias 'fname 'ej/copy-fname-to-clipboard)
 #+end_src
@@ -2314,6 +2318,7 @@ same directory as the org-buffer and insert a link to this file."
   ("m" (switch-to-buffer "*Messages*") "*Messages*" :exit t)
   ("p" (switch-to-buffer "*Packages*") "*Packages*" :exit t)
   ("P" (switch-to-buffer "*Python*") "*Python*" :exit t)
+  ("<f1>" windresize "windresize" :exit t)
   ("<f8>" ej/dired-in-other-window "Dired in other window" :exit t)
   ("<ESC>" nil "quit")
 )
@@ -2394,6 +2399,7 @@ same directory as the org-buffer and insert a link to this file."
   :defer t)
 
 (setq org-preview-latex-image-directory (concat org-latex-preview-dir "/"))
+(setq org-hide-emphasis-markers t)
 
 (defun ej/org-latex-hook ()
   (local-set-key (kbd "s-j") 'org-latex-preview)
@@ -2594,6 +2600,7 @@ Also I add this to document:
    (latex . t)
    (org . t)
    (lisp . t)
+   (shell . t)
    ;; (coq . t)
    ))
 
