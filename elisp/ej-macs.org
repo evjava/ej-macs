@@ -22,6 +22,24 @@
     - current line   - =(line-number-at-pos)=
     - current indent - =(current-column)=
 * Early config
+** custom
+#+begin_src emacs-lisp
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+(load custom-file)
+#+end_src
+** env and session
+#+begin_src emacs-lisp
+(use-package exec-path-from-shell
+  :config
+  (when (memq window-system '(mac ns x))
+    (exec-path-from-shell-initialize)))
+(use-package session
+  :config
+  (add-hook 'after-init-hook 'session-initialize)
+  (session-initialize)
+  (savehist-mode 1)
+)
+#+end_src
 ** Basic modules
 #+begin_src emacs-lisp
 (use-package cl-lib)
@@ -151,6 +169,7 @@
 (defvar bibliography-dir nil  "bibliography for org-ref")
 (defvar python-dir "/usr/bin/python3" "python dir path")
 (defvar telega-path nil "telega path")
+(defvar telega-contrib-path nil "telega path contrib")
 (defvar org-roam-dir nil "Org Roam directory")
 (defvar priv-conf-file nil "Private config path")
 (defvar nav-nav-dir nil "nav-nav path")
@@ -362,8 +381,8 @@
     :bind ("s-p h" . 'helm-projectile))
   (use-package helm-descbinds)
   (use-package helm-swoop
-    :config
-    (global-set-key (kbd "C-c C-g") 'helm-swoop))
+    :defer t
+    :bind ("C-c C-g" . 'helm-swoop))
   (use-package helm-ls-git)
   (use-package helm-dash)
   (use-package helm-switch-shell)
@@ -520,7 +539,8 @@ Works in Microsoft Windows, Mac OS X, Linux."
   (add-hook 'org-mode-hook 'diff-hl-mode)
   (add-hook 'prog-mode-hook 'diff-hl-mode))
 #+end_src
-** big files hook
+** files hooks and defadvices
+*** big files
 #+begin_src emacs-lisp
 (defun ej/find-file-check-make-large-file-read-only-hook ()
   "If a file is over a given size, make the buffer read only."
@@ -531,6 +551,17 @@ Works in Microsoft Windows, Mac OS X, Linux."
       (fundamental-mode)
       )))
 (add-hook 'find-file-hook 'ej/find-file-check-make-large-file-read-only-hook)
+#+end_src
+*** forbid opening djvu files
+Emacs usually freezes when I try to open a djvu-file.
+
+#+begin_src emacs-lisp
+(defun ej/dired--find-file--no-djvu (proc ff-function file)
+  (if (s-ends-with? ".djvu" file)
+      (message "Don't open djvu-files from dired")
+    (funcall proc ff-function file)))
+
+(advice-add 'dired--find-file :around #'ej/dired--find-file--no-djvu)
 #+end_src
 ** themes
 #+begin_src emacs-lisp
@@ -644,6 +675,9 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 
 (add-to-list 'auto-mode-alist '("\.m$" . octave-mode))
 (add-to-list 'auto-mode-alist '("\.g4$" . antlr-mode))
+
+;; for dabbrev-expand
+(setq dabbrev-abbrev-skip-leading-regexp "'")
 #+end_src
 ** python
 #+begin_src emacs-lisp
@@ -728,12 +762,6 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 #+end_src
 ** haskell
 #+begin_src emacs-lisp
-(use-package haskell-mode
-  :config
-  (add-hook 'haskell-mode-hook 'turn-on-haskell-indentation))
-#+end_src
-** haskell: hydra                       :hydra:
-#+begin_src emacs-lisp
 (defun ej/haskell-reload ()
   (interactive)
   (with-current-buffer "*shell*<1>"
@@ -764,9 +792,13 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
   ("h" ej/haskell-reload "reload")
   ("e" ej/haskell-jump-first-error "jump first error")
 )
-  
-(global-set-key (kbd "C-s-h") 'ej/hydra-haskell/body)
 
+(use-package haskell-mode
+  :defer t
+  :config
+  (add-hook 'haskell-mode-hook 'turn-on-haskell-indentation)
+  ;; (remove-hook 'haskell-mode-hook 'ej/haskell-mode-hook)
+  (local-set-key (kbd "C-s-h") 'ej/hydra-haskell/body))
 #+end_src
 ** slime                                :clisp:
 #+begin_src emacs-lisp
@@ -1316,62 +1348,33 @@ https://github.com/volrath/treepy.el
 ** google-translate
 #+begin_src emacs-lisp
 (use-package google-translate
+  :bind (("s-f" . ej/translate-yank))
   :config
   (require 'google-translate-default-ui)
-  (global-set-key "\C-ct" 'google-translate-at-point)
-  (global-set-key "\C-cT" 'google-translate-query-translate))
+  (setq google-translate-backend-method 'curl)
+  (defun google-translate--get-b-d1 ()
+    " fix from https://github.com/atykhonov/google-translate/issues/52 "
+    ;; TKK='427110.1469889687'
+    (list 427110 1469889687))
+  ;; hotfix from https://github.com/atykhonov/google-translate/issues/98
+  (defun google-translate-json-suggestion (jj)
+    (let ((info (aref jj 7)))
+      (if (and info (> (length info) 0))
+          (aref info 1)
+        nil)))
 
-;; fix from https://github.com/atykhonov/google-translate/issues/52
-(defun google-translate--search-tkk () "Search TKK." (list 430675 2721866130))
-(setq google-translate-backend-method 'curl)
-; (require 'google-translate-default-ui)
+  (setq google-translate-default-source-language "en")
+  (setq google-translate-default-target-language "ru")
+)
 
-(fset 'ej/translate-yank [?\M-w ?\C-c ?T ?  ?  ?\C-y return])
-(fset 'ej/translate-yank-reverse [?\M-w ?\C-c ?\s-t ?  ?  ?\C-y return])
-(fset 'ej/translate-word-at-point [?\s-d ?\s-f])
-
-(setq google-translate-default-source-language "en")
-(setq google-translate-default-target-language "ru")
-
-;; (global-set-key "\C-ct" 'google-translate-at-point)
-(global-set-key "\C-cT" 'google-translate-query-translate)
-(global-set-key (kbd "C-c s-t") 'google-translate-query-translate-reverse)
-(global-set-key (kbd "s-f") 'ej/translate-yank)
-(global-set-key (kbd "M-s-f") 'ej/translate-word-at-point)
-
-; hotfix from https://github.com/atykhonov/google-translate/issues/98
-(defun google-translate-json-suggestion (jj)
-  (let ((info (aref jj 7)))
-    (if (and info (> (length info) 0))
-      (aref info 1)
-      nil)))
-
-(defvar saved-position nil)
-;(setq saved-position 5)
-;(message (number-to-string saved-position))
-(defun ej/copy-translated-word ()
-  "method for copy word for google-translate: current-buffer:dict, next buffer: google-translate. development: 
-   17.02.15: 50min. 
-   20.04.16: 19:44..19:49
-   30.04.16: "
-  (interactive)
-  (let* ((pos-char (read-char "which choice? "))
-         (pos (string-to-int (char-to-string pos-char))))
-    (if (numberp pos) '() (setq pos saved-position))
-    (message (concat "new arg!!: " (if pos (number-to-string pos) "nil!")))
-    (setq saved-position pos)
-    (other-window 1)
-    (search-forward-regexp (format "[\n ]%d[.]" pos)) ; 
-    (setq begin (point))
-    (search-forward "(")
-    (backward-char)
-;    (move-end-of-line 1)
-    (let* ((word (buffer-substring-no-properties begin (point)))
-           (splitted-word (split-string word " ("))
-           (first-word (car splitted-word)))
-      (other-window -1)
-      (insert first-word)
-      (org-cycle))))
+(defun ej/translate-yank (start end)
+  " Translates region. en>ru if a..z found, else ru>en "
+  (interactive "r")
+  (let* ((text (buffer-substring-no-properties start end))
+         (source (if (s-match "[a-zA-Z]" text) "en" "ru"))
+         (target (if (equal "en" source) "ru" "en")))
+    (google-translate-translate source target text)
+    (other-window 1)))
 #+end_src
 ** zetteldeft
 #+begin_src emacs-lisp
@@ -1457,7 +1460,6 @@ https://github.com/volrath/treepy.el
 #+end_src
 ** telega
 #+begin_src emacs-lisp
-(setq telega-contrib-path (concat telega-path "/contrib"))
 (use-package telega
   :defer t
   :load-path telega-path
@@ -1504,9 +1506,8 @@ https://github.com/volrath/treepy.el
 ** nav jumping: avy
 #+begin_src emacs-lisp
 (use-package avy
-  :config
-  (global-set-key (kbd "C-$") 'avy-goto-char-timer)
-  (global-set-key (kbd "C-;") 'avy-goto-char-timer))
+  :defer t
+  :bind (("C-;" . 'avy-goto-char-timer)))
 #+end_src
 ** winner
 #+begin_src emacs-lisp
@@ -1714,7 +1715,7 @@ Inserts time in different formats.
   (2  . "%d.%m.%y")
   (3  . "upd: %d.%m.%y-%H:%M:%S. ")
   (4  . "date: %d.%m.%y-%H:%M:%S")
-  (5  . "%d.%m.%y-%H:%M")
+  (5 . "[%Y-%m-%d]")
   (6  . "%d.%m.%y-%H:%M:%S")
   (7 . "%Y-%m-%d")
   (8  . "%H:%M:%S")
@@ -1722,6 +1723,7 @@ Inserts time in different formats.
   (10  . "resolution(%d.%m.%y-%H:%M): ")
   (11 . "%a <Dec> %d %H:%M:%S %Y")
   (16 . "%d.%m.%y %a")
+  (17  . "%d.%m.%y-%H:%M")
   ))
 (setq TIME-FORMAT-DEFAULT "%H:%M")
 
@@ -1744,7 +1746,7 @@ Inserts time in different formats.
 
 (defun ej/insert-time-hydra ()
   (interactive)
-  (let* ((num-ch-subs '((10 . "a") (11 . "b") (16 . "s")))
+  (let* ((num-ch-subs '((10 . "a") (11 . "b") (16 . "s") (17 . "k")))
          (hydra-time-formats (cl-sublis num-ch-subs TIME-FORMATS))
          (sexp (-map #'ej/time-to-hydra-time hydra-time-formats)))
     (call-interactively (eval
@@ -1832,7 +1834,7 @@ C-u 0 M-x enumerate-rectangle"
   (let* (
          (idx (if (null file-idx) 0 (1- file-idx)))
          (dir default-directory)
-         (files (->> (directory-files-and-attributes dir nil nil)
+         (files (->> (directory-files-and-attributes dir nil nil t)
                      (--filter (file-regular-p (expand-file-name (car it) dir)))
                      (--sort (not (time-less-p (nth 6 it) (nth 6 other))))))
          (nth-edited (car (nth idx files))))
@@ -2041,18 +2043,32 @@ https://emacs.stackexchange.com/questions/41016/how-can-i-yank-images-from-emacs
   "Take a screenshot into a time stamped unique-named file in the
 same directory as the org-buffer and insert a link to this file."
   (interactive)
-  (let ((movep (if (is-pdf-buffer) (progn (other-window 1) t) nil)))
-    (progn
-      (setq filename
-            (concat
-             (make-temp-name
-              (concat (buffer-file-name)
-                      "_"
-                      (format-time-string "%Y%m%d_%H%M%S_")) ) ".png"))
-      (call-process "import" nil nil nil filename)
-      (insert (concat "[[" filename "]]\n\n"))
-      (org-display-inline-images)
-      (if movep (other-window 1)))))
+  (let ((movep (if (is-pdf-buffer) (progn (other-window 1) t) nil))
+        (filename
+         (concat
+          (make-temp-name
+           (concat (buffer-file-name)
+                   "_"
+                   (format-time-string "%Y%m%d_%H%M%S_")) ) ".png")))
+    (call-process "import" nil nil nil filename)
+    (insert (concat "[[" filename "]]\n\n"))
+    (org-display-inline-images)
+    (if movep (other-window 1))))
+
+(defun ej/org-screenshot-from-clipboard ()
+  " Creates time stamped file with image from clipboard and inserts it in org-buffer "
+  (interactive)
+  (let* ((fname
+          (concat (make-temp-name
+                   (concat (buffer-file-name)
+                           "_"
+                           (format-time-string "%Y%m%d_%H%M%S_")) ) ".png"))
+         (fname-full (expand-file-name fname))
+         (cmd (format "xclip -selection clipboard -t image/png -o > %s" fname-full)))
+    (shell-command cmd)
+    (insert (concat "[[" fname "]]\n\n"))
+    (org-display-inline-images)))
+
 (global-set-key (kbd "<s-f3>") 'ej/org-screenshot)
 #+end_src
 ** etc
@@ -2216,8 +2232,9 @@ same directory as the org-buffer and insert a link to this file."
 
 (defun ej/search-next (c)
   (interactive "cEnter character: ")
-  (let* ((cc (char-to-string c)))
-    (if (looking-at cc) 
+  (let* ((cc (char-to-string c))
+         (rcc (rx-to-string cc)))
+    (if (looking-at rcc)
         (forward-char))
     (search-forward cc)
     (backward-char)))
@@ -2327,12 +2344,26 @@ same directory as the org-buffer and insert a link to this file."
 #+end_src
 ** hydra: yank patchers                 :hydra:
 #+begin_src emacs-lisp
+(defun ej/title-by-url (url)
+  (let* ((command (format "wget -qO- %s |  gawk -v IGNORECASE=1 -v RS='</title' 'RT{gsub(/.*<title[^>]*>/,\"\");print;exit}'" url))
+         (res (s-trim (shell-command-to-string command)))
+         ) res))
+
+(require 'esxml-query)
+
+(defun ej/title-by-url (url)
+  (let* ((root (with-current-buffer (url-retrieve-synchronously url)
+                 (libxml-parse-html-region (point-min) (point-max))))
+         (res (car (dom-children (esxml-query "title" root))))
+         ) res))
+
 (defun ej/yank-downloaded-title ()
   "insert in this buffer title for yanked url"
   (interactive)
   (let* ((url (car kill-ring))
-         (command (format "wget -qO- %s |  gawk -v IGNORECASE=1 -v RS='</title' 'RT{gsub(/.*<title[^>]*>/,\"\");print;exit}'" url)))
-    (insert (s-trim (shell-command-to-string command)))))
+         (url-title (ej/title-by-url url)))
+    (insert (ej/title-by-url url))))
+
 (defalias 'titlize 'ej/insert-title)
 
 (defun ej/yank-double-slashes ()
@@ -2399,7 +2430,8 @@ same directory as the org-buffer and insert a link to this file."
   :defer t)
 
 (setq org-preview-latex-image-directory (concat org-latex-preview-dir "/"))
-(setq org-hide-emphasis-markers t)
+;; `t` leads to strange behavior with headings... :(
+(setq org-hide-emphasis-markers nil)
 
 (defun ej/org-latex-hook ()
   (local-set-key (kbd "s-j") 'org-latex-preview)
@@ -3123,8 +3155,8 @@ Replace \"%A\" in FORMAT with English day of week of today,
 #+end_src
 * Private config
 #+begin_src emacs-lisp
-(if (ej/file-exists-p priv-conf-file)
-    (org-babel-load-file priv-conf-file))
+(when priv-conf-file
+  (ej/load-config priv-conf-file))
 #+end_src
 * DISABLED
 ** org-fragtog

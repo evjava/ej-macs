@@ -1,36 +1,23 @@
+;;;; ----- GC
 ;; (setq gc-cons-threshold (* 4000 1024 1024))
+(setq old-threshold gc-cons-threshold)
+(setq gc-cons-threshold most-positive-fixnum)
 
 ;;;; ----- packages
 (require 'package)
 (package-initialize)
 (let ((repos '(("melpa" . "http://melpa.org/packages/")
-               ("melpa-stable" . "http://stable.melpa.org/packages/")
-               )))
+               ("melpa-stable" . "http://stable.melpa.org/packages/"))))
   (mapc (lambda (repo) (add-to-list 'package-archives repo)) repos))
+
+;;;; ----- use-package
 (unless (package-installed-p 'use-package)
   (package-refresh-contents)
   (package-install 'use-package))
-(eval-when-compile 
-  (require 'use-package))
+(eval-when-compile (require 'use-package))
 (setq use-package-always-ensure t
       use-package-verbose t
       package-enable-at-startup t)
-(use-package session
-  :config
-  (add-hook 'after-init-hook 'session-initialize)
-  (session-initialize)
-  (savehist-mode 1)
-)
-
-;;;; ----- custom
-(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
-(load custom-file)
-
-;;;; ----- env
-(use-package exec-path-from-shell
-  :config
-  (when (memq window-system '(mac ns x))
-    (exec-path-from-shell-initialize)))
 
 ;;;; ----- load-path
 (add-to-list 'load-path (locate-user-emacs-file "elisp"))
@@ -51,5 +38,7 @@
       (if (file-newer-than-file-p elisp-file org-file)
           (load-file elisp-file)
         (org-babel-load-file org-file)))))
-
 (ej/load-config "elisp/ej-macs.org")
+
+(setq gc-cons-threshold old-threshold)
+(message "Emacs started in %s" (emacs-init-time))
