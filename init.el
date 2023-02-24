@@ -1,5 +1,4 @@
 ;;;; ----- GC
-;; (setq gc-cons-threshold (* 4000 1024 1024))
 (setq old-threshold gc-cons-threshold)
 (setq gc-cons-threshold most-positive-fixnum)
 

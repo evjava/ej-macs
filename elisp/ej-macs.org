@@ -27,18 +27,12 @@
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (load custom-file)
 #+end_src
-** env and session
+** env
 #+begin_src emacs-lisp
 (use-package exec-path-from-shell
   :config
   (when (memq window-system '(mac ns x))
     (exec-path-from-shell-initialize)))
-(use-package session
-  :config
-  (add-hook 'after-init-hook 'session-initialize)
-  (session-initialize)
-  (savehist-mode 1)
-)
 #+end_src
 ** Basic modules
 #+begin_src emacs-lisp
@@ -157,7 +151,6 @@
   (expand-file-name name emacs-local-dir))
 
 (setq last-theme-file (ej/emacs-local-path "last-theme.cfg"))
-(setq desktop-file (ej/emacs-local-path "desktop"))
 (setq emms-dir (ej/emacs-local-path "emms"))
 (setq projectile-cache-file (ej/emacs-local-path "projectile.cache"))
 (setq bookmark-default-file (ej/emacs-local-path "emacs_bookmarks"))
@@ -387,9 +380,8 @@
   (use-package helm-dash)
   (use-package helm-switch-shell)
   (use-package helm-system-packages)
-  (use-package helm-org-rifle
-    :config)
-    ;; (define-key org-mode-map (kbd "C-c C-j") 'helm-org-rifle))
+  (use-package helm-org-rifle 
+    :defer t)
   )
 (require 'helm)
 
@@ -803,6 +795,7 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 ** slime                                :clisp:
 #+begin_src emacs-lisp
 (use-package slime
+  :defer t
   :config
   (setq inferior-lisp-program "/usr/bin/sbcl"))
 #+end_src
@@ -1139,11 +1132,13 @@ Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
 Clojure Zippers for Emacs Lisp
 https://github.com/volrath/treepy.el
 #+begin_src emacs-lisp
-(use-package treepy)
+(use-package treepy 
+  :defer t)
 #+end_src
 ** eros                                 :elisp:
 #+begin_src emacs-lisp
 (use-package eros
+  :defer t
   :config
   (eros-mode 1))
 #+end_src
@@ -1194,6 +1189,7 @@ https://github.com/volrath/treepy.el
 ** coq
 #+begin_src emacs-lisp
 (use-package proof-general
+  :defer t
 	:custom
 	(proof-splash-enable nil))
 #+end_src
@@ -1230,12 +1226,12 @@ https://github.com/volrath/treepy.el
                    (registers . 5))
  initial-buffer-choice (lambda () (get-buffer "*dashboard*")))
 #+end_src
-** desktop: 
+** desktop
 #+begin_src emacs-lisp
 (use-package desktop
   :config
-  (desktop-file-name "desktop" desktop-file)
   (desktop-save-mode 1)
+  (setq desktop-path (list emacs-local-dir))
   (setq desktop-save t)
   (setq desktop-save-mode t)
   (setq desktop-load-locked-desktop t)
@@ -1245,9 +1241,13 @@ https://github.com/volrath/treepy.el
 )
 #+end_src
 ** session
+e.g. for saving commands history
 #+begin_src emacs-lisp
-;; for saving commands history
-
+(use-package session
+  :config
+  (add-hook 'after-init-hook 'session-initialize)
+  (session-initialize)
+  (savehist-mode 1))
 #+end_src
 ** doom-modeline
 #+begin_src emacs-lisp
@@ -1262,6 +1262,7 @@ https://github.com/volrath/treepy.el
 ** multiple-cursors
 #+begin_src emacs-lisp
 (use-package multiple-cursors
+  :defer t
   :bind
   ; multiple-cursors
   ("C-S-c C-S-c" . 'mc/edit-lines)
@@ -1299,6 +1300,7 @@ https://github.com/volrath/treepy.el
 ** yafolding
 #+begin_src emacs-lisp
 (use-package yafolding
+  :defer t
   :bind
   ("<C-S-return>" . nil)
   ("<C-M-return>" . nil)
@@ -1341,6 +1343,7 @@ https://github.com/volrath/treepy.el
 ** kotlin-mode
 #+begin_src emacs-lisp
 (use-package kotlin-mode
+  :defer t
   :config
   (add-to-list 'auto-mode-alist '("\.kt$" . kotlin-mode))
   )
@@ -1376,15 +1379,6 @@ https://github.com/volrath/treepy.el
     (google-translate-translate source target text)
     (other-window 1)))
 #+end_src
-** zetteldeft
-#+begin_src emacs-lisp
-(use-package zetteldeft
-  :after deft
-  :init
-  ;(zetteldeft-set-classic-keybindings))
-  )
-#+end_src
-
 ** emms
 #+begin_src emacs-lisp
 (defun open-emms-or-play-directory-tree-if-empty (&optional directory)
@@ -1398,6 +1392,7 @@ https://github.com/volrath/treepy.el
                                 t)))))
 
 (use-package emms
+  :defer t
   :config
   (setq emms-directory emms-dir
         emms-player-list '(emms-player-vlc emms-player-vlc-playlist emms-player-mpg321 emms-player-ogg123 emms-player-mplayer-playlist emms-player-mplayer)
@@ -1480,6 +1475,7 @@ https://github.com/volrath/treepy.el
 ** emoji support
 #+begin_src emacs-lisp
 (use-package emojify
+  :defer t
   ;; :hook (after-init . global-emojify-mode)
   :config
   (setq emojify-emojis-dir (ej/emacs-local-path "emojis")) 
@@ -1512,16 +1508,14 @@ https://github.com/volrath/treepy.el
 ** winner
 #+begin_src emacs-lisp
 (use-package winner
+  :defer t
   :custom
   (winner-mode t))
-#+end_src
-** trashed
-#+begin_src emacs-lisp
-(use-package trashed)
 #+end_src
 ** erefactor
 #+begin_src emacs-lisp
 (use-package erefactor
+  :defer t
   :config
   (define-key emacs-lisp-mode-map (kbd "<S-f6>") 'erefactor-rename-symbol-in-buffer)
   ;; :bind (:map emacs-lisp-mode-map ("<S-f6>" . erefactor-rename-symbol-in-buffer)))
@@ -1546,6 +1540,11 @@ Simple goto-definition
                                   dired-previous-line backward-delete-char-untabify move-beginning-of-line
                                   mwheel-scroll ignore))
   )
+#+end_src
+** other deferred packages
+#+begin_src emacs-lisp
+(use-package trashed :defer t)
+(use-package diff-hl :defer t)
 #+end_src
 * Functions
 <<utils>>
@@ -2071,6 +2070,20 @@ same directory as the org-buffer and insert a link to this file."
 
 (global-set-key (kbd "<s-f3>") 'ej/org-screenshot)
 #+end_src
+** images: saving rotation
+#+begin_src emacs-lisp
+(defun save-image-rotation ()
+  " save in place rotated image with Image Magick "
+  (interactive)
+  (pcase (image-property (image--get-image) :rotation)
+    ('nil (message "No rotation"))
+    (rot (let* ((img (buffer-file-name))
+                (cmd (format "convert %s -rotate %d" img rot)))
+           (shell-command cmd)
+           (message "Saved rotated image (%d)" rot)))))
+
+(define-key image-mode-map (kbd "C-x C-s") #'save-image-rotation)
+#+end_src
 ** etc
 #+begin_src emacs-lisp
 (defun google-it (&optional input-seq)
@@ -2108,9 +2121,6 @@ same directory as the org-buffer and insert a link to this file."
 
 (fset 'ej/open-last-file
    [f3 ?\C-f ?\M-p return])
-
-(fset 'ej/parse-time
-   [?\C-  ?\C-f tab tab ?\C-w ?\C-s ?| ?\C-b ?\C-b ?  ?= ?\C-5 ?\C-d ?\C-d ?\C-\M-f ?\C-\M-f ?. ?. ?\C-3 ?\C-d ?\C-\M-f ?\C-\M-f ?\C-k])
 
 (defun ej/sum ()
   (interactive)
@@ -2349,7 +2359,10 @@ same directory as the org-buffer and insert a link to this file."
          (res (s-trim (shell-command-to-string command)))
          ) res))
 
-(require 'esxml-query)
+(use-package esxml
+  :defer t
+  :config
+  (require 'esxml-query))
 
 (defun ej/title-by-url (url)
   (let* ((root (with-current-buffer (url-retrieve-synchronously url)
@@ -2421,6 +2434,7 @@ same directory as the org-buffer and insert a link to this file."
 ** cdlatex                              :latex:
 #+begin_src emacs-lisp
 (use-package cdlatex
+  :defer t
   :config
   (add-hook 'org-mode-hook 'turn-on-org-cdlatex))
 #+end_src
@@ -3017,6 +3031,7 @@ Replace \"%A\" in FORMAT with English day of week of today,
 ** org-download
 #+begin_src emacs-lisp
 (use-package org-download
+  :defer t
   :config
   (add-hook 'dired-mode-hook 'org-download-enable)
   )
