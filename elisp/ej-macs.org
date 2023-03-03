@@ -339,7 +339,6 @@
          ("M-y" . 'helm-show-kill-ring)
          ("s-/" . helm-lisp-completion-at-point))
   :config
-  (require 'helm-config)
   (helm-mode 1)
   (global-unset-key (kbd "C-x c"))
   (setq 
