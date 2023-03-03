@@ -17,6 +17,9 @@ projectile-bookmarks.eld
 /network-security.data
 places
 /request
+tramp
+eln-cache/
+.org-id-locations
 /elisp/ej-macs.el
 /elisp/ej-macs.pdf
 /elisp/ej-macs.tex
