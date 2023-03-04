@@ -2,6 +2,10 @@
 cache
 archives
 session.*
+.cask
+auto-save-list
+games
+tutorial
 .trello
 .local
 elpa
