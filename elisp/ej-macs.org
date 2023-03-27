@@ -166,6 +166,7 @@
 (defvar org-roam-dir nil "Org Roam directory")
 (defvar priv-conf-file nil "Private config path")
 (defvar nav-nav-dir nil "nav-nav path")
+(defvar iove-dir nil "iove path")
 (defvar nav-items-file nil "path to nav-nav-file")
 (defvar latex-headers-file nil "latex headers file for completions")
 (defvar asmtools-jar-path nil "path to amstools.jar")
@@ -369,18 +370,15 @@
                                   helm-source-recentf
                                   helm-source-bookmarks
                                   helm-source-buffer-not-found))
-  (use-package helm-projectile
-    :bind ("s-p h" . 'helm-projectile))
+  (use-package helm-projectile :bind ("s-p h" . 'helm-projectile))
+  (use-package helm-swoop :defer t :bind ("C-c C-g" . 'helm-swoop))
   (use-package helm-descbinds)
-  (use-package helm-swoop
-    :defer t
-    :bind ("C-c C-g" . 'helm-swoop))
   (use-package helm-ls-git)
   (use-package helm-dash)
-  (use-package helm-switch-shell)
-  (use-package helm-system-packages)
-  (use-package helm-org-rifle 
-    :defer t)
+  (use-package helm-switch-shell :defer t)
+  (use-package helm-system-packages :defer t)
+  (use-package helm-org-rifle :defer t)
+  (use-package helm-rg :defer t)
   )
 (require 'helm)
 
@@ -632,7 +630,7 @@ Emacs usually freezes when I try to open a djvu-file.
 (load-theme-on-start)
 #+end_src
 ** nav-nav
-Loads nav-nav from directory with nav-nav if exists and via quelpa otherwise.
+Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise.
 #+begin_src emacs-lisp
 (defun ej/configure-nav-nav ()
   (setq nav-nav-is-switch-layout t)
@@ -1546,6 +1544,20 @@ Simple goto-definition
 (use-package trashed :defer t)
 (use-package diff-hl :defer t)
 #+end_src
+** iove
+Loads =iove= from directory with =iove= if exists and via quelpa otherwise.
+#+begin_src emacs-lisp
+(defun ej/configure-iove ()
+  (define-key python-mode-map (kbd "s-l") #'iove/annotate))
+
+(if (ej/file-exists-p iove-dir)
+    (use-package iove
+      :load-path iove-dir
+      :config (ej/configure-iove))
+  (use-package iove
+      :quelpa (iove :fetcher git :url "https://github.com/evjava/iove.git")
+      :config (ej/configure-iove)))
+#+end_src
 * Functions
 <<utils>>
 ** calculator
@@ -2086,16 +2098,13 @@ same directory as the org-buffer and insert a link to this file."
 #+end_src
 ** etc
 #+begin_src emacs-lisp
-(defun google-it (&optional input-seq)
+(defun ej/google-it (&optional input-seq)
   (interactive)
-  (if (null input-seq) 
-      (progn
-        (exchange-point-and-mark)
-        (setq begin (point))
-        (exchange-point-and-mark)
-        (setq seq (buffer-substring-no-properties begin (point))))
-    (setq seq input-seq))
-  (shell-command (concat  "chromium-browser \"https://www.google.ru/search?q=" seq "\" && wmctrl -a chromium-browser")))
+  (let* ((query (or
+                 input-seq
+                 (buffer-substring (mark-marker) (point))))
+         (url (concat "https://www.google.ru/search?q=" query)))
+    (browse-url url)))
 
 (defun ej/anti-zap-to-char (arg char)
   "Zap to a character"
@@ -2428,6 +2437,33 @@ same directory as the org-buffer and insert a link to this file."
   ("p" ej/yank-python-onelinefy "Python onelinefy")
   ("<ESC>" nil "exit"))
 (global-set-key (kbd "C-s-y") 'ej/hydra-yank/body)
+#+end_src
+** context utils
+#+begin_src emacs-lisp
+(defun ej/drop-brackets-if-has (str)
+  (cl-flet ((start-end? (p s) (and (s-starts-with? p str) (s-ends-with? s str))))
+    (if (or
+         (start-end? "[" "]")
+         (start-end? "(" ")")
+         (start-end? "{" "}"))
+        (substring str 1 (1- (length str)))
+      str)))
+
+(defun ej/rg-sexp-at-point ()
+  (interactive)
+  (let* ((sexp (thing-at-point 'sexp))
+         (str (ej/drop-brackets-if-has str))
+         (regexp (eval `(rx ,str)))
+         (default-directory (projectile-project-root)))
+    (helm-rg regexp t)))
+
+(defun ej/unscreen-string ()
+  (interactive)
+  (let* ((sexp ((thing-at-point 'sexp))))
+    (switch-to-buffer "*unscreen*")
+    (erase-buffer)
+    (insert (read sexp))
+    (beginning-of-buffer)))
 #+end_src
 * ORG configuration
 ** base org config
