@@ -61,6 +61,7 @@
         wdired-exit
         wdired-next-line
         wdired-previous-line
+        yaml-electric-backspace
         ))
 
 (setq mc/cmds-to-run-once

@@ -582,7 +582,7 @@ Emacs usually freezes when I try to open a djvu-file.
 
 (defun ej/set-theme (theme)
   (if (eq theme *ej/theme-dark*)
-    (ej/set-dark-theme)
+      (ej/set-dark-theme)
     (ej/set-light-theme))
   (setq *ej/current-theme* theme)
   (ej/write-string-to-file (format "%s" theme) *ej/theme-location*)
@@ -645,7 +645,7 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
       :config (ej/configure-nav-nav))
   (use-package nav-nav
       :after (hydra)
-      :quelpa (nav-nav :fetcher git :url "https://github.com/evjava/nav-nav.git")
+      :quelpa (nav-nav :fetcher github :repo "evjava/nav-nav")
       :config (ej/configure-nav-nav)))
 #+end_src
 * Develop
@@ -1447,9 +1447,16 @@ e.g. for saving commands history
 #+end_src
 ** yaml-mode
 #+begin_src emacs-lisp
+(defun ej/hook-yaml ()
+  (outline-minor-mode)
+  (local-set-key (kbd "C-s-c") #'outline-cycle)
+  (local-set-key (kbd "C-S-s-c") #'outline-cycle-buffer)
+  (setq outline-regexp "^\s*- name: "))
+
 (use-package yaml-mode
   :config
-  (add-to-list 'auto-mode-alist '("\\.ya?ml\\'" . yaml-mode)))
+  (add-to-list 'auto-mode-alist '("\\.ya?ml\\'" . yaml-mode))
+  (add-hook 'yaml-mode-hook 'ej/hook-yaml))
 #+end_src
 ** telega
 #+begin_src emacs-lisp
@@ -1552,11 +1559,13 @@ Loads =iove= from directory with =iove= if exists and via quelpa otherwise.
 
 (if (ej/file-exists-p iove-dir)
     (use-package iove
+      :requires python
       :load-path iove-dir
       :config (ej/configure-iove))
   (use-package iove
-      :quelpa (iove :fetcher git :url "https://github.com/evjava/iove.git")
-      :config (ej/configure-iove)))
+    :requires python
+    :quelpa (iove :fetcher github :repo "evjava/iove")
+    :config (ej/configure-iove)))
 #+end_src
 * Functions
 <<utils>>
@@ -2262,6 +2271,15 @@ same directory as the org-buffer and insert a link to this file."
 (defun ej/copy-buffer ()
   " copy buffer content "
   (buffer-substring-no-properties (point-min) (point-max)))
+
+(defun ej/run-other-window ()
+  (interactive)
+  (save-buffer)
+  (other-window 1)
+  (end-of-buffer)
+  (comint-previous-input 1)
+  (comint-send-input)
+  (other-window -1))
 #+end_src
 ** python: copy section                 :python:
 #+begin_src emacs-lisp
@@ -2459,11 +2477,24 @@ same directory as the org-buffer and insert a link to this file."
 
 (defun ej/unscreen-string ()
   (interactive)
-  (let* ((sexp ((thing-at-point 'sexp))))
+  (let* ((text ((buffer-substring-no-properties (mark) (point)))))
     (switch-to-buffer "*unscreen*")
     (erase-buffer)
-    (insert (read sexp))
-    (beginning-of-buffer)))
+    (insert (read text))
+    (goto-char (point-min))))
+#+end_src
+** shell completions
+#+begin_src emacs-lisp
+(defun ej/bash-history ()
+  (interactive)
+  (helm
+   :sources (helm-build-sync-source "Bash history"
+              :candidates (vc--read-lines "~/.bash_history")
+              :action #'insert
+              :fuzzy-match t)
+   :buffer "*Bash history*"))
+
+(define-key shell-mode-map (kbd "M-s-r") #'ej/bash-history)
 #+end_src
 * ORG configuration
 ** base org config
