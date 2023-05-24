@@ -68,6 +68,7 @@
       '(
         dired-next-line
         dired-previous-line
+        kill-rectangle
         kmacro-end-and-call-macro
         yaml-electric-dash-and-dot
         yank-rectangle

@@ -749,6 +749,30 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
   ("d" (search-forward "DBG") "next DBG" :exit nil)
   )
 #+end_src
+** python hydra
+#+begin_src emacs-lisp
+(setq 
+ ej/python-snippets
+ '(
+   "from dataclasses import dataclass"
+   "raise AttributeError("
+   "if __name__ == '__main__':\n\tfire.Fire("
+   "import fire"
+   ))
+      
+
+(defhydra ej/hydra-python (:foreign-keys warn :columns 1 :exit t)
+  ("s-l" iove/annotate "annotate" :exit nil)
+  ("i" (helm
+        :sources  (helm-build-sync-source "Add Python snippet"
+                    :candidates ej/python-snippets
+                    :action 'insert
+                    :fuzzy-match t)
+        :buffer "*helm suggestion latex header*")))
+
+(use-package python
+  :bind (:map python-mode-map ("s-l" . ej/hydra-python/body)))
+#+end_src
 ** haskell
 #+begin_src emacs-lisp
 (defun ej/haskell-reload ()
@@ -1555,7 +1579,7 @@ Simple goto-definition
 Loads =iove= from directory with =iove= if exists and via quelpa otherwise.
 #+begin_src emacs-lisp
 (defun ej/configure-iove ()
-  (define-key python-mode-map (kbd "s-l") #'iove/annotate))
+  )
 
 (if (ej/file-exists-p iove-dir)
     (use-package iove
@@ -2276,10 +2300,15 @@ same directory as the org-buffer and insert a link to this file."
   (interactive)
   (save-buffer)
   (other-window 1)
-  (end-of-buffer)
-  (comint-previous-input 1)
-  (comint-send-input)
-  (other-window -1))
+  (if (not (equal major-mode 'shell-mode))
+      (message "Other window isn't shell!")
+    (goto-char (point-max))
+    (comint-previous-input 1)
+    (comint-send-input)
+    (other-window -1)))
+
+(defun ej/prog-mode-hook ()
+  (local-set-key (kbd "s-j") #'ej/run-other-window))
 #+end_src
 ** python: copy section                 :python:
 #+begin_src emacs-lisp
@@ -2424,7 +2453,7 @@ same directory as the org-buffer and insert a link to this file."
          (patched (->> killed
                        (downcase)
                        (s-replace-regexp "[\s\n_–]" "-")
-                       (s-replace-regexp "[,:]" ""))))
+                       (s-replace-regexp "[,:*]" ""))))
     (insert patched)))
 
 (defun ej/yank-link-to-wiki ()
@@ -2477,7 +2506,7 @@ same directory as the org-buffer and insert a link to this file."
 
 (defun ej/unscreen-string ()
   (interactive)
-  (let* ((text ((buffer-substring-no-properties (mark) (point)))))
+  (let* ((text (buffer-substring-no-properties (mark) (point))))
     (switch-to-buffer "*unscreen*")
     (erase-buffer)
     (insert (read text))
@@ -2705,6 +2734,7 @@ Also I add this to document:
    (org . t)
    (lisp . t)
    (shell . t)
+   (dot . t)
    ;; (coq . t)
    ))
 
