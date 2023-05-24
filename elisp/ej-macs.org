@@ -399,6 +399,7 @@
 ** hydra                                :hydra:
 #+begin_src emacs-lisp
 (use-package hydra)
+(use-package pretty-hydra)
 #+end_src
 * Config
 ** shell
