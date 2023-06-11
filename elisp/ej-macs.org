@@ -55,12 +55,13 @@
 (put 'upcase-region 'disabled nil)
 (put 'narrow-to-region 'disabled nil)
 
-(setq frame-title-format '((:eval (concat 
-                (if (buffer-file-name)
-                    (abbreviate-file-name (buffer-file-name))
-                  "%b")
-                " - Emacs! "
-                user-login-name "@" (system-name)))))
+(setq 
+ frame-title-format 
+ '((:eval 
+    (concat 
+     (if (buffer-file-name) (abbreviate-file-name (buffer-file-name)) "%b")
+     " - GNU Emacs at "
+     (system-name)))))
 
 (defconst debian-emacs-flavor 'emacs26
   "A symbol representing the particular debian flavor of emacs running.
@@ -1144,11 +1145,11 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
   )
 ;;  ("m" ej/message-last-sexp "message last sexp")
 ;;  ("T" ej/toggle-el-test "toggle .el or -test.el")
+(global-set-key (kbd "C-x s-e") 'ej/eval-replace)
+(global-set-key (kbd "C-x C-S-e") 'ej/eval-replace)
 (defun ej/elisp-hook ()
   (local-set-key (kbd "s-l") 'ej/elisp-interactive/body)
-  (local-set-key (kbd "M-s-t") 'transpose-sexps)
-  (local-set-key (kbd "C-x s-e") 'ej/eval-replace)
-  (local-set-key (kbd "C-x C-S-e") 'ej/eval-replace))
+  (local-set-key (kbd "M-s-t") 'transpose-sexps))
 (add-hook 'emacs-lisp-mode-hook 'ej/elisp-hook)
 #+end_src
 ** treepy                               :elisp:
@@ -2310,6 +2311,7 @@ same directory as the org-buffer and insert a link to this file."
 
 (defun ej/prog-mode-hook ()
   (local-set-key (kbd "s-j") #'ej/run-other-window))
+(add-hook 'prog-mode-hook 'ej/prog-mode-hook)
 #+end_src
 ** python: copy section                 :python:
 #+begin_src emacs-lisp
