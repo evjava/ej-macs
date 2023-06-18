@@ -1571,6 +1571,13 @@ Simple goto-definition
                                   mwheel-scroll ignore))
   )
 #+end_src
+** hyperbole
+#+begin_src emacs-lisp :tangle no
+(use-package hyperbole
+  :ensure t
+  :config
+  (unbind-key "M-o" hyperbole-mode-map))
+#+end_src
 ** other deferred packages
 #+begin_src emacs-lisp
 (use-package trashed :defer t)
