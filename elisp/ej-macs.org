@@ -1611,7 +1611,7 @@ Loads =iove= from directory with =iove= if exists and via quelpa otherwise.
 ** calculator
 <<calculator>>
 Sends expression to R and shows result as message on fly. 
-Installing =littler= required (=sudo apt install littler=).
+Installing =littler= required (=sudo apt install littler=). If no littler found, uses =awk=.
 
 Usage:
 - go to new line or type ":"
@@ -1625,6 +1625,12 @@ Usage:
 (make-variable-buffer-local (defvar ej/calc-last "" "last evaluated expression"))
 (make-variable-buffer-local (defvar ej/calc-fullp nil "is read from beginning of line"))
 
+(setq shell-math-cmd
+      (if (empty (shell-command-to-string "which r"))
+          "awk \"BEGIN{printf %s}\" | sed 's/,/./g'"
+        "r -e 'cat(%s)'"))
+;; (setq shell-math-cmd "awk \"BEGIN{printf %s}\" | sed 's/,/./g'")
+
 (defun string/starts-with (string prefix)
   (and (string-match (rx-to-string `(: bos ,prefix) t) string) t))
 
@@ -1637,7 +1643,7 @@ Usage:
          (indexof (cl-search SEARCH-START-CHARACTER almost-expr :start2 0))
          (expr (if (null indexof) almost-expr (substring almost-expr (1+ indexof) (length almost-expr))))
          (balanced-expr (ej/balance expr))
-         (bash-expr (format "r -e 'cat(%s)'" balanced-expr))
+         (bash-expr (format shell-math-cmd balanced-expr))
          (evaluated (shell-command-to-string bash-expr))
          (output evaluated))
     (setq ej/calc-fullp (null indexof))
