@@ -1,5 +1,5 @@
 #+TITLE: evjavacs
-#+AUTHOR: Eugene Vagin
+#+AUTHOR: Eugene Tagin
 #+STARTUP: showall
 #+LATEX_HEADER: \usepackage[english,russian]{babel}
 
@@ -42,6 +42,8 @@
 #+end_src
 ** Some variables
 #+begin_src emacs-lisp
+(defalias 'x-cut-buffer-or-selection-value 'x-selection-value)
+
 (defvar mc--read-char nil)
 (defvar mc--read-quoted-char nil)
 (defvar rectangular-region-mode nil)
@@ -182,7 +184,7 @@
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 
 ;; font
-(set-face-attribute 'default nil :font (font-spec :family "Monospace" :size 18))
+(set-face-attribute 'default nil :font (font-spec :family "Monospace" :size 25))
 #+end_src
 ** Server
 #+begin_src emacs-lisp
@@ -1281,8 +1283,13 @@ e.g. for saving commands history
   (setq doom-modeline-height 4)
   (doom-modeline-mode 1)
 )
+(use-package nerd-icons
+  :if (display-graphic-p))
 ; (doom-modeline-mode -1)
 #+end_src
+
+Need to run
+- M-x nerd-icons-install-fonts
 ** multiple-cursors
 #+begin_src emacs-lisp
 (use-package multiple-cursors
@@ -1438,16 +1445,15 @@ e.g. for saving commands history
          ("C-<f10>" . 'emms-next)
          ("C-S-<f9>" . 'emms-seek-backward)
          ("C-S-<f10>" . 'emms-seek-forward)
-         ("C-<f11>" . 'emms-volume-lower)
-         ("C-<f12>" . 'emms-volume-raise)
          ("C-s-e" . 'emms)))
 
 #+end_src
 ** saveplace
 #+begin_src emacs-lisp
-(use-package saveplace
-        :custom (ej/emacs-local-path "places")
-        :config (save-place-mode 1))
+;; (ignore-errors 
+;;   (use-package saveplace
+;;           :custom (ej/emacs-local-path "places")
+;;           :config (save-place-mode 1)))
 #+end_src
 ** pdf-tools, org-pdfview
 #+begin_src emacs-lisp
@@ -1458,8 +1464,8 @@ e.g. for saving commands history
   (add-to-list 'auto-mode-alist '("\\.pdf\\'" . pdf-view-mode))
   (setq-default pdf-view-display-size 'fit-page)
 
-  (use-package saveplace-pdf-view)
-  (save-place-mode 1)
+  ;; (use-package saveplace-pdf-view)
+  ;; (save-place-mode 1)
   (add-to-list 'debug-ignored-errors "No such page")
   (message "pdf-tools configured")
   :bind
@@ -2547,23 +2553,6 @@ same directory as the org-buffer and insert a link to this file."
 (global-set-key (kbd "C-c c") 'org-capture)
 
 #+end_src
-** bindings
-#+begin_src emacs-lisp
-(defun ej/org-hook ()
-  (local-set-key (kbd "s-t") 'visual-line-mode)
-  (local-set-key (kbd "<C-return>") 'ej/add-line-item)
-  (local-set-key (kbd "<C-S-return>") 'ej/add-line-item-reverse)
-  (local-set-key (kbd "C-x w") 'ej/wrap-src)
-
-  (local-set-key (kbd "C-M-x") 'eval-defun)
-  (local-set-key (kbd "C-M-x") 'eval-defun)
-
-  ;; don't need margins after new-line
-  (electric-indent-local-mode -1)
-  (visual-line-mode 1)
-)
-(add-hook 'org-mode-hook 'ej/org-hook)
-#+end_src
 ** cdlatex                              :latex:
 #+begin_src emacs-lisp
 (use-package cdlatex
@@ -2678,7 +2667,7 @@ unicode=true is useful for cyrillic in links.
     (if is-slides
         (org-beamer-export-to-pdf)
       (org-latex-export-to-pdf))))
-(define-key org-mode-map (kbd "<f11>") 'ej/export-to-pdf-or-beamer)
+(define-key org-mode-map (kbd "C-<f11>") 'ej/export-to-pdf-or-beamer)
 #+end_src
 ** xelatex                              :latex:
 #+begin_src emacs-lisp
@@ -2773,14 +2762,13 @@ To fix =org-export--get-inbuffer-options: Symbol’s function definition is void
   (delete-directory org-latex-preview-dir t t))
 
 (defun update-org-latex-fragments ()
-  (org-toggle-latex-fragment '(16))
+  (org-latex-preview 4)
   (plist-put org-format-latex-options :scale text-scale-mode-amount)
-  (org-toggle-latex-fragment '(16)))
-(add-hook 'text-scale-mode-hook 'update-org-latex-fragments)
+  (org-latex-preview 16))
 
 (defun ej/fix-org-format-options-scale()
   (interactive)
-  (setq org-format-latex-options (plist-put org-format-latex-options :scale 2.0)))
+  (setq org-format-latex-options (plist-put org-format-latex-options :scale 4.0)))
 (ej/fix-org-format-options-scale)
 #+end_src
 ** preview: deleting                    :latex:
@@ -3271,9 +3259,26 @@ Replace \"%A\" in FORMAT with English day of week of today,
   ("d" org-ref-bibtex-new-entry/doi-insert-bibtex-and-exit "insert by DOI")
   ("t" (insert "^{\\theta}") "insert theta")
   ("<ESC>" nil "exit"))
+#+end_src
+** bindings
+#+begin_src emacs-lisp
+(defun ej/org-hook ()
+  (local-set-key (kbd "s-t") 'visual-line-mode)
+  (local-set-key (kbd "<C-return>") 'ej/add-line-item)
+  (local-set-key (kbd "<C-S-return>") 'ej/add-line-item-reverse)
+  (local-set-key (kbd "C-x w") 'ej/wrap-src)
 
-;; (ej/hydra-org/body)
-(global-set-key (kbd "C-s-u") 'ej/hydra-org/body)
+  (local-set-key (kbd "C-M-x") 'eval-defun)
+  (local-set-key (kbd "C-M-x") 'eval-defun)
+
+  ;; don't need margins after new-line
+  (electric-indent-local-mode -1)
+  (visual-line-mode 1)
+
+  (local-set-key (kbd "C-s-u") 'ej/hydra-org/body)
+  (add-hook 'text-scale-mode-hook 'update-org-latex-fragments nil t)
+  )
+(add-hook 'org-mode-hook 'ej/org-hook)
 #+end_src
 * Private config
 #+begin_src emacs-lisp
