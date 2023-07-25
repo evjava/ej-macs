@@ -189,7 +189,7 @@
 ** Server
 #+begin_src emacs-lisp
 (server-start)
-(defun ej/reconnect()
+(defun ej/restart-server()
   (interactive)
   (server-force-delete)
   (server-start))
@@ -1626,7 +1626,7 @@ Usage:
 (make-variable-buffer-local (defvar ej/calc-fullp nil "is read from beginning of line"))
 
 (setq shell-math-cmd
-      (if (empty (shell-command-to-string "which r"))
+      (if (= 0(length (shell-command-to-string "which r")))
           "awk \"BEGIN{printf %s}\" | sed 's/,/./g'"
         "r -e 'cat(%s)'"))
 ;; (setq shell-math-cmd "awk \"BEGIN{printf %s}\" | sed 's/,/./g'")
