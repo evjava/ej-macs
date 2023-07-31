@@ -42,7 +42,7 @@
 #+end_src
 ** Some variables
 #+begin_src emacs-lisp
-(defalias 'x-cut-buffer-or-selection-value 'x-selection-value)
+;; (load "cut-fixer")
 
 (defvar mc--read-char nil)
 (defvar mc--read-quoted-char nil)
@@ -1122,6 +1122,7 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
 		("TAB" ej/indent-and-next-line "Indent and next line" :exit nil)
 		("<C-tab>" ej/indent-until-end-of-sexp "Indent until end of sexp" :exit t)
 		("w" ej/copy-sexp-at-point "copy last sexp")
+    ("j" ej/run-test-function "TEST")
 		)
 	 
 	 "Eval/set"
@@ -1468,6 +1469,7 @@ Need to run
   ;; (save-place-mode 1)
   (add-to-list 'debug-ignored-errors "No such page")
   (message "pdf-tools configured")
+  (add-hook 'pdf-view-mode-hook 'pdf-isearch-minor-mode)
   :bind
   (:map pdf-view-mode-map ("C-s" . isearch-forward))
   (:map pdf-view-mode-map ("C-s-a" . pdf-annot-add-highlight-markup-annotation))
@@ -1683,6 +1685,10 @@ Usage:
 
 #+end_src
 ** quick copy
+I often had to copy =shrugman=, so I wrote function for it.
+Then I realized that I needed more different copy options.
+
+- [ ] extract transient+helm part from nav-nav, use it here
 #+begin_src emacs-lisp
 (defun ej/copy-shrugman ()
   " do in shell: $ emacsclient --no-wait --eval '(ej/copy-shrugman)' "

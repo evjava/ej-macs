@@ -36,6 +36,7 @@
         kmacro-start-macro-or-insert-counter
         mc/vertical-align-with-space
         org-attach
+        org-backward-sentence
         org-beginning-of-line
         org-ctrl-c-ctrl-c
         org-cycle
