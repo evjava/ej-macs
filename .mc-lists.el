@@ -63,6 +63,7 @@
         wdired-next-line
         wdired-previous-line
         yaml-electric-backspace
+        zap-up-to-char
         ))
 
 (setq mc/cmds-to-run-once

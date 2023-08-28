@@ -1684,6 +1684,13 @@ Usage:
     (remove-hook 'post-command-hook 'ej/calculator)))
 
 #+end_src
+** math
+#+begin_src emacs-lisp
+(defun avg (&rest args)
+  (/ (* 1.0 (apply #'+ args)) (length args)))
+
+
+#+end_src
 ** quick copy
 I often had to copy =shrugman=, so I wrote function for it.
 Then I realized that I needed more different copy options.
@@ -2862,6 +2869,13 @@ To fix =org-export--get-inbuffer-options: Symbol’s function definition is void
 (add-to-list 'org-latex-classes
                 '("compact-report3"
                "\\documentclass[a4paper,11pt]{extarticle}"
+                  ("\\section{%s}" . "\\chapter*{%s}")
+                  ("\\subsection{%s}" . "\\subsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+
+(add-to-list 'org-latex-classes
+                '("compact-report3-landscape"
+               "\\documentclass[a4paper,landscape,11pt]{extarticle}"
                   ("\\section{%s}" . "\\chapter*{%s}")
                   ("\\subsection{%s}" . "\\subsection*{%s}")
                   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
