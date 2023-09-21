@@ -1800,7 +1800,7 @@ Inserts time in different formats.
   (9  . "[%Y-%m-%d %a %H:%M]")
   (10  . "resolution(%d.%m.%y-%H:%M): ")
   (11 . "%a <Dec> %d %H:%M:%S %Y")
-  (16 . "[%Y-%m-%d] %a")
+  (16 . "[%Y-%m-%d %a]")
   (17  . "%d.%m.%y-%H:%M")
   ))
 (setq TIME-FORMAT-DEFAULT "%H:%M")
@@ -2667,6 +2667,8 @@ unicode=true is useful for cyrillic in links.
 				;;; "biber %b"
         "pdflatex -interaction nonstopmode -output-directory %o %f"
         "pdflatex -interaction nonstopmode -output-directory %o %f"))
+(setq org-latex-to-pdf-process org-latex-pdf-process)
+(setq org-latex-compiler "latex")
 #+end_src
 **** bibliography?
 #+begin_src emacs-lisp
@@ -2747,6 +2749,7 @@ Also I add this to document:
    (gnuplot . t)
    (python . t)
    (emacs-lisp . t)
+   (mscgen . t)
    (R . t)
    (latex . t)
    (org . t)
@@ -2863,7 +2866,7 @@ To fix =org-export--get-inbuffer-options: Symbol’s function definition is void
                 '("compact-report2"
                "\\documentclass[a4paper,11pt]{extarticle}"
                   ("\\section{%s}" . "\\chapter*{%s}")
-                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                  ("\\subsection{%s}" . "\\subsection*{%s}")
                   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
 
 (add-to-list 'org-latex-classes

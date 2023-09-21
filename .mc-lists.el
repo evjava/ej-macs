@@ -23,6 +23,7 @@
         ej/copy-all
         ej/eval-replace
         ej/insert-latex-section
+        ej/insert-time
         ej/kill-line
         ej/shell-1-or-else
         end-of-buffer
@@ -48,6 +49,7 @@
         org-open-line
         org-self-insert-command
         org-shifttab
+        org-transpose-words
         org-yank
         pg-protected-undo
         revert-buffer
