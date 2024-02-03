@@ -52,6 +52,7 @@
         org-transpose-words
         org-yank
         pg-protected-undo
+        python-nav-backward-up-list
         revert-buffer
         slime-space
         split-window-horizontally

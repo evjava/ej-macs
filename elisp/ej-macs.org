@@ -184,7 +184,7 @@
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 
 ;; font
-(set-face-attribute 'default nil :font (font-spec :family "Monospace" :size 25))
+(set-face-attribute 'default nil :font (font-spec :family "Monospace" :size 27))
 #+end_src
 ** Server
 #+begin_src emacs-lisp
@@ -1383,6 +1383,7 @@ Need to run
 ** google-translate
 #+begin_src emacs-lisp
 (use-package google-translate
+  :ensure t
   :bind (("s-f" . ej/translate-yank))
   :config
   (require 'google-translate-default-ui)
@@ -1400,7 +1401,8 @@ Need to run
 
   (setq google-translate-default-source-language "en")
   (setq google-translate-default-target-language "ru")
-)
+  )
+(require 'google-translate)
 
 (defun ej/translate-yank (start end)
   " Translates region. en>ru if a..z found, else ru>en "
@@ -1520,10 +1522,10 @@ Need to run
   (setq emojify-emojis-dir (ej/emacs-local-path "emojis")) 
   :init
 )
-(use-package company
-  :init
-  (company-mode)
-)
+;; (use-package company
+;;   :init
+;;   (company-mode)
+;; )
 (setq telega-emoji-company-backend 'telega-company-emoji)
 
 (defun ej/telega-chat-mode-emoji ()
@@ -1716,8 +1718,9 @@ Simplifies navigation via links in buffer.
   (funcall link-callback (thing-at-point-url-at-point)))
 
 (defun ej/link-copier (link)
-  (kill-new link)
-  (message "Copied link: %s" link))
+  (when link
+    (kill-new link)
+    (message "Copied link: %s" link)))
 
 (defun ej/copy-next-link (cnt) (interactive "p") (ej/link-nav cnt      'org-next-link     'ej/link-copier))
 (defun ej/copy-prev-link (cnt) (interactive "p") (ej/link-nav cnt      'org-previous-link 'ej/link-copier))
@@ -2330,16 +2333,26 @@ same directory as the org-buffer and insert a link to this file."
   " copy buffer content "
   (buffer-substring-no-properties (point-min) (point-max)))
 
+(defun ej/is-python-in-command ()
+  (save-excursion
+    (move-beginning-of-line 1)
+    (let* ((word (thing-at-point 'word))
+           (py-words '("python" "pytest" "PYTHONPATH")))
+      (--any? (equal it word) py-words))))
+
 (defun ej/run-other-window ()
   (interactive)
   (save-buffer)
-  (other-window 1)
-  (if (not (equal major-mode 'shell-mode))
-      (message "Other window isn't shell!")
-    (goto-char (point-max))
-    (comint-previous-input 1)
-    (comint-send-input)
-    (other-window -1)))
+  (let* ((is-py (s-ends-with? ".py" (buffer-file-name))))
+    (other-window 1)
+    (if (not (equal major-mode 'shell-mode))
+        (message "Other window isn't shell!")
+      (goto-char (point-max))
+      (if (not is-py) (comint-previous-input 1)
+        (while (not (ej/is-python-in-command))
+          (comint-previous-input 1)))
+      (comint-send-input)
+      (other-window -1))))
 
 (defun ej/prog-mode-hook ()
   (local-set-key (kbd "s-j") #'ej/run-other-window))
@@ -2589,7 +2602,7 @@ same directory as the org-buffer and insert a link to this file."
 (setq org-hide-emphasis-markers nil)
 
 (defun ej/org-latex-hook ()
-  (local-set-key (kbd "s-j") 'org-latex-preview)
+  (local-set-key (kbd "M-s-j") 'org-latex-preview)
 
   ;; cdlatex
   (define-key org-cdlatex-mode-map "_" nil)
