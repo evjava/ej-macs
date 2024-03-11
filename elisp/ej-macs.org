@@ -62,7 +62,7 @@
  '((:eval 
     (concat 
      (if (buffer-file-name) (abbreviate-file-name (buffer-file-name)) "%b")
-     " - GNU Emacs at "
+     " - emacs@"
      (system-name)))))
 
 (defconst debian-emacs-flavor 'emacs26
@@ -753,30 +753,6 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
   ("d" (search-forward "DBG") "next DBG" :exit nil)
   )
 #+end_src
-** python hydra
-#+begin_src emacs-lisp
-(setq 
- ej/python-snippets
- '(
-   "from dataclasses import dataclass"
-   "raise AttributeError("
-   "if __name__ == '__main__':\n\tfire.Fire("
-   "import fire"
-   ))
-      
-
-(defhydra ej/hydra-python (:foreign-keys warn :columns 1 :exit t)
-  ("s-l" iove/annotate "annotate" :exit nil)
-  ("i" (helm
-        :sources  (helm-build-sync-source "Add Python snippet"
-                    :candidates ej/python-snippets
-                    :action 'insert
-                    :fuzzy-match t)
-        :buffer "*helm suggestion latex header*")))
-
-(use-package python
-  :bind (:map python-mode-map ("s-l" . ej/hydra-python/body)))
-#+end_src
 ** haskell
 #+begin_src emacs-lisp
 (defun ej/haskell-reload ()
@@ -1322,6 +1298,8 @@ Need to run
               ("s-з" . 'projectile-command-map)
               ("C-c p" . 'projectile-command-map))
   :config
+  (setq projectile-enable-caching t)
+  (setq projectile-indexing-method 'native)
   (projectile-mode +1))
 #+end_src
 ** dired-subtree
@@ -1724,7 +1702,7 @@ Simplifies navigation via links in buffer.
 
 (defun ej/copy-next-link (cnt) (interactive "p") (ej/link-nav cnt      'org-next-link     'ej/link-copier))
 (defun ej/copy-prev-link (cnt) (interactive "p") (ej/link-nav cnt      'org-previous-link 'ej/link-copier))
-(defun ej/open-next-link (cnt) (interactive "p") (ej/link-nav (1- cnt) 'org-next-link     'browse-url))
+(defun ej/open-next-link (cnt) (interactive "p") (ej/link-nav (1- cnt) 'org-next-link     'org-open-at-point))
 
 (global-set-key (kbd "<f7>")   'ej/copy-next-link)
 (global-set-key (kbd "<S-f7>") 'ej/copy-prev-link)
@@ -2476,7 +2454,7 @@ same directory as the org-buffer and insert a link to this file."
 (defun ej/yank-downloaded-title ()
   "insert in this buffer title for yanked url"
   (interactive)
-  (let* ((url (car kill-ring))
+  (let* ((url (--first (s-starts-with? "http" it) kill-ring))
          (url-title (ej/title-by-url url)))
     (insert (ej/title-by-url url))))
 
@@ -3086,19 +3064,23 @@ Simplifies filling of (nested) checklist.
 (fset 'ej/copy-cell [?\M-a ?\C-  ?\M-e ?\M-w tab])
 (global-set-key (kbd "<C-f2>") 'ej/copy-cell)
 
-(defun ej/wrap-src (language)
-  (interactive "sWhich language? (default: [emacs-lisp]) ")
-  (let ((point-a (point))
-        (lang (if (empty language) "emacs-lisp" language))
-    )
-    (exchange-point-and-mark)
-    (let ((point-b (point)))
-      (kill-region point-a point-b)
-      (insert (format "#+begin_src %s\n" lang))
-      (yank)
-      (if (not (eq (current-column) 0))
-          (insert "\n"))
-      (insert "#+end_src\n"))))
+(defun ej/wrap-src (lang)
+  (let* ((snippet (buffer-substring-no-properties (mark) (point)))
+         (prefix (format "#+begin_src %s\n" lang))
+         (suffix (format "%s#+end_src\n" (if (zerop (current-column)) "" "\n")))
+         (block (format "%s%s%s" prefix snippet suffix)))
+    (kill-region (mark) (point))
+    (insert block)))
+
+(defun ej/wrap-src-interactive ()
+  (interactive)
+  (let* ((snippet (buffer-substring-no-properties (mark) (point)))
+         (detected-lang-0 (symbol-name (language-detection-string snippet)))
+         (detected-lang (if (equal "awk" detected-lang-0) "emacs-lisp" detected-lang-0))
+         (prompt (format "Which language? (default: [%s]) " detected-lang))
+         (lang-read (read-from-minibuffer prompt))
+         (lang (if (empty lang-read) detected-lang lang-read)))
+    (ej/wrap-src lang)))
 
 (defun ej/insert-kotlin-before-after ()
   (interactive)
@@ -3308,7 +3290,7 @@ Replace \"%A\" in FORMAT with English day of week of today,
   (local-set-key (kbd "s-t") 'visual-line-mode)
   (local-set-key (kbd "<C-return>") 'ej/add-line-item)
   (local-set-key (kbd "<C-S-return>") 'ej/add-line-item-reverse)
-  (local-set-key (kbd "C-x w") 'ej/wrap-src)
+  (local-set-key (kbd "C-x w") 'ej/wrap-src-interactive)
 
   (local-set-key (kbd "C-M-x") 'eval-defun)
   (local-set-key (kbd "C-M-x") 'eval-defun)

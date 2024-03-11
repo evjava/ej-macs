@@ -35,6 +35,7 @@
         indent-for-tab-command
         kill-region
         kmacro-start-macro-or-insert-counter
+        markdown-outdent-or-delete
         mc/vertical-align-with-space
         org-attach
         org-backward-sentence
@@ -52,6 +53,9 @@
         org-transpose-words
         org-yank
         pg-protected-undo
+        picture-backward-column
+        picture-clear-column
+        picture-self-insert
         python-nav-backward-up-list
         revert-buffer
         slime-space
@@ -73,6 +77,7 @@
       '(
         dired-next-line
         dired-previous-line
+        dired-subtree-toggle
         kill-rectangle
         kmacro-end-and-call-macro
         yaml-electric-dash-and-dot
