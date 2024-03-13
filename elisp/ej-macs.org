@@ -81,6 +81,7 @@
 (add-hook 'comint-output-filter-functions 'comint-watch-for-password-prompt)
 
 (put 'narrow-to-region 'disabled nil)
+(setq interprogram-paste-function 'x-selection-value)
 #+end_src
 ** Functions: base
 #+begin_src emacs-lisp
