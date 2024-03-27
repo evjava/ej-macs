@@ -81,12 +81,16 @@
 (add-hook 'comint-output-filter-functions 'comint-watch-for-password-prompt)
 
 (put 'narrow-to-region 'disabled nil)
-(setq interprogram-paste-function 'x-selection-value)
+
+;; (setq interprogram-paste-function 'x-selection-value)
+(defalias 'x-cut-buffer-or-selection-value 'x-selection-value)
 #+end_src
 ** Functions: base
 #+begin_src emacs-lisp
 (defun load-ignore-error (file)
-  (condition-case nil (load file) (error nil)))
+  (condition-case nil
+      (load file)
+    (error (message "Failed to load: %s" file))))
 
 (defun load-org-ignore-error (org-file)
   (condition-case nil (org-babel-load-file org-file) (error nil)))
@@ -1196,6 +1200,21 @@ https://github.com/volrath/treepy.el
   :defer t
 	:custom
 	(proof-splash-enable nil))
+#+end_src
+** docker
+#+begin_src emacs-lisp
+(use-package dockerfile-mode
+  :defer t)
+
+(use-package docker
+  :ensure t
+  :bind ("C-c d" . docker))
+#+end_src
+** markdown
+#+begin_src emacs-lisp
+(use-package markdown-mode
+  :config
+  :bind ("C-x w" . ej/wrap-src-interactive))
 #+end_src
 * Modules
 <<modules>>
@@ -3065,19 +3084,32 @@ Simplifies filling of (nested) checklist.
 (fset 'ej/copy-cell [?\M-a ?\C-  ?\M-e ?\M-w tab])
 (global-set-key (kbd "<C-f2>") 'ej/copy-cell)
 
+(setq ORG-BASE-PREF "#+begin_src ")
+(setq ORG-BASE-SUFF "#+end_src")
+(setq MD-BASE-PREF "```")
+(setq MD-BASE-SUFF "```")
+
 (defun ej/wrap-src (lang)
   (let* ((snippet (buffer-substring-no-properties (mark) (point)))
-         (prefix (format "#+begin_src %s\n" lang))
-         (suffix (format "%s#+end_src\n" (if (zerop (current-column)) "" "\n")))
-         (block (format "%s%s%s" prefix snippet suffix)))
+         (pref-base (if (equal major-mode 'org-mode) ORG-BASE-PREF MD-BASE-PREF))
+         (suff-base (if (equal major-mode 'org-mode) ORG-BASE-SUFF MD-BASE-SUFF))
+         (pref (format "%s%s\n" pref-base lang))
+         (suff (format "%s%s\n" suff-base (if (zerop (current-column)) "" "\n")))
+         (block (format "%s%s%s" pref snippet suff)))
     (kill-region (mark) (point))
     (insert block)))
+
+(defun ej/detect-lang (snippet)
+  (let* ((detected-lang (symbol-name (language-detection-string snippet))))
+    (pcase detected-lang
+      ("awk" "elisp")
+      ("emacslisp" "elisp")
+      (_ detected-lang))))
 
 (defun ej/wrap-src-interactive ()
   (interactive)
   (let* ((snippet (buffer-substring-no-properties (mark) (point)))
-         (detected-lang-0 (symbol-name (language-detection-string snippet)))
-         (detected-lang (if (equal "awk" detected-lang-0) "emacs-lisp" detected-lang-0))
+         (detected-lang (ej/detect-lang snippet))
          (prompt (format "Which language? (default: [%s]) " detected-lang))
          (lang-read (read-from-minibuffer prompt))
          (lang (if (empty lang-read) detected-lang lang-read)))
