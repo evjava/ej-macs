@@ -411,7 +411,7 @@
 #+end_src
 * Config
 ** shell
-*** basic config
+*** common
 #+begin_src emacs-lisp
 ;; pager for stdout
 (use-package shell
@@ -424,28 +424,59 @@
          "DeepSkyBlue1" "MediumOrchid1" "cyan" "white"]))
 
 #+end_src
-*** shortcuts
+*** global shortcuts
 #+begin_src emacs-lisp
 (setq ej/shell-cnt 6)
+
 (defun ej/shell-1-or-else (&optional new-shell) 
   (interactive "P")
   (if (null new-shell) (shell "*shell*<1>")
     (let ((new-shell-buffer-name (format "*shell*<%d>" ej/shell-cnt)))
       (setq ej/shell-cnt (1+ ej/shell-cnt))
       (shell new-shell-buffer-name))))
-(global-set-key (kbd "s-n") 'ej/shell-1-or-else)
 
-(global-set-key (kbd "s-m") (lambda () (interactive) (shell "*shell*<2>")))
-(global-set-key (kbd "s-,") (lambda () (interactive) (shell "*shell*<3>")))
-;; (global-set-key (kbd "s-.") (lambda () (interactive) (shell "*shell*<4>")))
-;; (global-set-key (kbd "s-/") (lambda () (interactive) (shell "*shell*<5>")))
+(defun ej/switch-to-next-shell ()
+  (interactive)
+  (let* ((buffers (-map #'buffer-name (buffer-list)))
+         (shell-buffers (--filter (string-match "\\*shell\\*<[0-9]+>$" it) buffers))
+         (sorted-shell-buffers (-sort (-on #'< #'extract-int) shell-buffers))
+         (len (length sorted-shell-buffers))
+         (cur-buf (buffer-name))
+         (idx-0 (-elem-index cur-buf sorted-shell-buffers))
+         (idx (or idx-0 (1- len)))
+         (next-idx (mod (1+ idx) len))
+         (next-buf (elt sorted-shell-buffers next-idx)))
+    (switch-to-buffer next-buf)))
 
 (defun rename-shell (new-shell-name)
   (interactive "senter new shell name: ")
   (rename-buffer (format "*shell*<%s>" new-shell-name)))
-(global-set-key (kbd "C-c s-r") 'rename-shell)
 
-(global-set-key (kbd "C-x s-l") '(lambda () (interactive) (insert "alias l=\"ls -al\"") (comint-send-input)))
+(global-set-key (kbd "s-n") 'ej/shell-1-or-else)
+(global-set-key (kbd "s-m") (lambda () (interactive) (shell "*shell*<2>")))
+(global-set-key (kbd "s-,") (lambda () (interactive) (shell "*shell*<3>")))
+;; (global-set-key (kbd "s-.") (lambda () (interactive) (shell "*shell*<4>")))
+;; (global-set-key (kbd "s-/") (lambda () (interactive) (shell "*shell*<5>")))
+(global-set-key (kbd "M-s-n") 'ej/switch-next-shell)
+#+end_src
+*** local shortcuts
+#+begin_src emacs-lisp
+(defun ej/bash-history ()
+  (interactive)
+  (helm
+   :sources (helm-build-sync-source "Bash history"
+              :candidates (seq-reverse (vc--read-lines "~/.bash_history"))
+              :action #'insert
+              :fuzzy-match t)
+   :buffer "*Bash history*"))
+
+(defun rename-shell (new-shell-name)
+  (interactive "senter new shell name: ")
+  (rename-buffer (format "*shell*<%s>" new-shell-name)))
+
+(define-key shell-mode-map (kbd "M-s-r") #'ej/bash-history)
+(define-key shell-mode-map (kbd "s-t") #'toggle-truncate-lines)
+(define-key shell-mode-map (kbd "C-c s-r") #'rename-shell)
 #+end_src
 *** advice: disable asking
 https://stackoverflow.com/questions/2706527/make-emacs-stop-asking-active-processes-exist-kill-them-and-exit-anyway
@@ -467,6 +498,29 @@ Can't complete name if there are only one variant
 (use-package helm-fish-completion
   :bind (:map shell-mode-map ("<tab>" . helm-fish-completion)))
 #+end_src
+*** shell interactive
+#+begin_src emacs-lisp
+(defun insert-send (text)
+  (interactive)
+  (insert text)
+  (comint-send-input))
+
+(defhydra ej/shell-helper (:columns 1 :foreign-keys warn :exit t)
+  "shell helper"
+  ("p" (insert-send "import pandas as pd") "import pandas as pd")
+  ("P" (insert-send "from pathlib import Path") "from pathlib import Path")
+  ("c" (insert-send "from collections import Counter, defaultdict") "Counter & defaultdict")
+  ("l" (insert-send "alias l=\"ls -al\"") "alias l=\"ls -al\"")
+  )
+
+(defun ej/shell-hook ()
+  (interactive)
+  (local-set-key (kbd "C-c s-r") 'rename-shell)
+  (local-set-key (kbd "s-l") 'ej/shell-helper/body)
+  )
+(add-hook 'shell-mode-hook 'ej/shell-hook)
+#+end_src
+
 ** dired
 #+begin_src emacs-lisp
 (setq dired-recursive-copies (quote always))
@@ -678,6 +732,7 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
 (setq dabbrev-abbrev-skip-leading-regexp "'")
 #+end_src
 ** python
+*** common
 #+begin_src emacs-lisp
 (setq org-babel-python-command python-dir)
 (setq python-shell-interpreter python-dir)
@@ -688,6 +743,198 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
   (setq tab-width 2))
 
 (add-hook 'python-mode-hook 'ej/hook-python-vars)
+#+end_src
+*** flake8
+#+begin_src elisp
+(defun show-chunk-overlay (line text)
+  (let* ((_ (goto-line line))
+         (_ (end-of-line))
+         (text-display (format "\n%s\n" text))
+         (ov (make-overlay (point) (1+ (point)))))
+    (overlay-put ov 'display text-display)
+    (overlay-put ov 'face `(:foreground "red"))))
+
+(defun ej/parse-flake8-line (line)
+  " returns `(pos-x pos-y text) "
+  (let* ((parts (s-split-up-to ":" line 3))
+         (pos-x (string-to-number (elt parts 1)))
+         (pos-y (string-to-number (elt parts 2)))
+         (text (s-trim (elt parts 3)))
+         (res (list pos-x pos-y text))
+         ) res))
+
+(defun ej/pline-to-text (pline)
+  (let* ((parsed pline)
+         (pos-x (car parsed))
+         (pos-y (cadr parsed))
+         (text (caddr parsed)))
+    (format "%s⤷ %s" (s-repeat (1- pos-y) " ") text)))
+
+(defun ej/run-test-function ()
+  (interactive)
+  (save-current-buffer)
+  (eval-buffer)
+  (with-current-buffer "dassist_checker.py"
+    (ej/annotate-py-with-flake8)))
+
+(defun ej/inline-flake8-chunk (chunk)
+  (-let* ((pos-x (car chunk))
+          (parsed-lines (cdr chunk))
+          (texts (--map (ej/pline-to-text it) parsed-lines))
+          (text (s-join "\n" texts)))
+    (show-chunk-overlay pos-x text)))
+
+(setq QUALIFIED-PREF "Unable to find qualified")
+
+(defun ej/locate-flake8 ()
+  (s-trim (shell-command-to-string "which flake8")))
+
+(defun ej/flake8-parsed-lines (file-name)
+  (let* ((cmd (format "%s %s" (ej/locate-flake8) file-name))
+         (out (s-trim (shell-command-to-string cmd)))
+         (lines-0 (s-split "\n" out))
+         (lines (--remove (or (= 0 (length it)) (s-starts-with? QUALIFIED-PREF it)) lines-0))
+         (parsed-lines (--map (ej/parse-flake8-line it) lines))
+         ) parsed-lines))
+
+(defun ej/annotate-py-with-flake8 ()
+  (interactive)
+  (save-buffer)
+  (let* ((parsed-lines (ej/flake8-parsed-lines (buffer-file-name)))
+         (chunks (--group-by (car it) parsed-lines))
+         (pline-0 (car parsed-lines))
+         (pos-x (unless (= 0 (length pline-0)) (car pline-0))))
+    (ej/remove-overlays)
+    (if (not parsed-lines)
+        (message "No style problems found")
+      (when parsed-lines
+        (save-excursion
+          (cl-loop
+           for chunk in chunks
+           do (message "chunk: %S" chunk)
+           do (ej/inline-flake8-chunk chunk)))
+        (message "goto: %s" pos-x)
+        (goto-line pos-x)))))
+
+(defun ej/flake8-warn-keys-for-cur-line ()
+  (interactive)
+  (let* ((parsed-lines (ej/flake8-parsed-lines (buffer-file-name)))
+         (cur-line-pos (line-number-at-pos))
+         (cur-parsed-lines (--filter (eq cur-line-pos (car it)) parsed-lines))
+         (keys (--map (car (s-split-up-to " " (caddr it) 1)) cur-parsed-lines))
+         ) keys))
+
+(defun ej/noqa-fix (&optional noca-comment-other)
+  (interactive)
+  (-when-let* ((noqa-comment (or noca-comment-other "todo-fix"))
+               (keys (-uniq (ej/flake8-warn-keys-for-cur-line)))
+               (keys-joined (s-join ", " keys))
+               (noqa-comment (format "  # noqa: %s: %s" keys-joined noqa-comment)))
+    (when noqa-comment
+      (ej/remove-overlays)
+      (end-of-line)
+      (insert noqa-comment)
+      (beginning-of-line)
+      (ej/annotate-py-with-flake8))))
+#+end_src
+*** python interactive
+#+begin_src emacs-lisp
+(setq 
+ ej/python-snippets
+ '(
+   "from dataclasses import dataclass"
+   "raise AttributeError("
+   "if __name__ == '__main__':\n\tfire.Fire("
+   "import fire"
+   ))
+
+(pretty-hydra-define ej/python-interactive (:foreign-keys warn :exit t :quit-key "q")
+	(
+   "Annotations"
+	 (
+    ("s-i" iove/annotate :exit t)
+    ("s-l" ej/annotate-py-with-flake8 "flake-8")
+    ("f" ej/annotate-py-with-flake8 "flake-8")
+    ("n" ej/noqa-fix "noqa-fix")
+    ("N" (ej/noqa-fix "intended") "noqa-fix-intended")
+		)
+	 
+	 "Code actions"
+	 (("g" ej/jump-go "dumb-jump-go wrapper")
+		("b" dumb-jump-back "dumb-jump-back")
+		(";" ej/comment-and-next-line "comment and next line" :exit nil)
+		("TAB" ej/indent-and-next-line "Indent and next line" :exit nil)
+		("<C-tab>" ej/indent-until-end-of-sexp "Indent until end of sexp" :exit t)
+    ("i" (helm
+        :sources  (helm-build-sync-source "Add Python snippet"
+                    :candidates ej/python-snippets
+                    :action 'insert
+                    :fuzzy-match t)
+        :buffer "*helm suggestion latex header*") "completions")
+		("w" ej/copy-sexp-at-point "copy last sexp")
+    ("b" (insert "breakpoint()") "breakpoint")
+    ("a" (insert "from pathlib import Path") "from pathlib import Path")
+    ("m" (insert "if __name__ == '__main__':\n    ") "if __name__ == '__main__'")
+		)
+	 
+	 "Templates"
+	 ()
+	 
+	 "Etc"
+	 (
+    ("d" ej/remove-overlays "remove overlays")
+    ("<ESC>" nil "exit")
+    ("/" (let* ((line (thing-at-point 'line)))
+           (end-of-line 1)
+           (forward-char 1)
+           (other-window 1)
+           (insert (s-trim line))
+           (comint-send-input)
+           (other-window -1)) "eval line" :exit nil)
+                
+		)
+	 )
+  )
+
+(defun ej/py-interactive-hook ()
+  (interactive)
+  (local-set-key (kbd "s-l") 'ej/python-interactive/body)
+  ;; (local-set-key (kbd "s-l") 'iove/annotate)
+  )
+(add-hook 'python-mode-hook 'ej/py-interactive-hook)
+#+end_src
+*** python: copy section                :python:
+#+begin_src emacs-lisp
+(defun avi-kill-line-save (&optional arg)
+      "Copy to the kill ring from point to the end of the current line.
+    With a prefix argument, copy that many lines from point. Negative
+    arguments copy lines backward. With zero argument, copies the
+    text before point to the beginning of the current line."
+      (interactive "p")
+      (save-excursion
+        (copy-region-as-kill
+         (point)
+         (progn (if arg (forward-visible-line arg)
+                  (end-of-visible-line))
+                (point)))))
+
+; todo improve or research some normal python-mode
+(defun ej/copy-python-section()
+  " 3:00 - 03:15, 00:12 -  "
+  (interactive)
+  (let ((continue t))
+    (while continue
+      (avi-kill-line-save)
+      (next-line)
+      (setq continue (equal (following-char) ?\ ))
+      (other-window 1)
+      (yank)
+      (if (not continue)
+        (comint-send-input)
+        (progn
+          (open-line 1)
+          (next-line)))
+      (other-window -1))))
 #+end_src
 ** groovy
 #+begin_src emacs-lisp
@@ -2334,9 +2581,15 @@ same directory as the org-buffer and insert a link to this file."
 (defun ej/is-python-in-command ()
   (save-excursion
     (move-beginning-of-line 1)
-    (let* ((word (thing-at-point 'word))
-           (py-words '("python" "pytest" "PYTHONPATH")))
-      (--any? (equal it word) py-words))))
+    (let* ((cmd (thing-at-point 'line))
+           (py-words '("python" "pytest" "PYTHONPATH" "flake8"))
+           (res (and cmd (--any? (s-contains? it cmd) py-words)))
+           ) res)))
+
+(defun ej/is-inside-program ()
+  (save-excursion
+    (backward-char 2)
+    (not (equal "$" (thing-at-point 'char)))))
 
 (defun ej/run-other-window ()
   (interactive)
@@ -2346,6 +2599,8 @@ same directory as the org-buffer and insert a link to this file."
     (if (not (equal major-mode 'shell-mode))
         (message "Other window isn't shell!")
       (goto-char (point-max))
+      (when (ej/is-inside-program)
+        (comint-send-eof))
       (if (not is-py) (comint-previous-input 1)
         (while (not (ej/is-python-in-command))
           (comint-previous-input 1)))
@@ -2355,39 +2610,6 @@ same directory as the org-buffer and insert a link to this file."
 (defun ej/prog-mode-hook ()
   (local-set-key (kbd "s-j") #'ej/run-other-window))
 (add-hook 'prog-mode-hook 'ej/prog-mode-hook)
-#+end_src
-** python: copy section                 :python:
-#+begin_src emacs-lisp
-(defun avi-kill-line-save (&optional arg)
-      "Copy to the kill ring from point to the end of the current line.
-    With a prefix argument, copy that many lines from point. Negative
-    arguments copy lines backward. With zero argument, copies the
-    text before point to the beginning of the current line."
-      (interactive "p")
-      (save-excursion
-        (copy-region-as-kill
-         (point)
-         (progn (if arg (forward-visible-line arg)
-                  (end-of-visible-line))
-                (point)))))
-
-; todo improve or research some normal python-mode
-(defun ej/copy-python-section()
-  " 3:00 - 03:15, 00:12 -  "
-  (interactive)
-  (let ((continue t))
-    (while continue
-      (avi-kill-line-save)
-      (next-line)
-      (setq continue (equal (following-char) ?\ ))
-      (other-window 1)
-      (yank)
-      (if (not continue)
-        (comint-send-input)
-        (progn
-          (open-line 1)
-          (next-line)))
-      (other-window -1))))
 #+end_src
 ** presentation mode
 #+begin_src emacs-lisp
@@ -2557,19 +2779,6 @@ same directory as the org-buffer and insert a link to this file."
     (erase-buffer)
     (insert (read text))
     (goto-char (point-min))))
-#+end_src
-** shell completions
-#+begin_src emacs-lisp
-(defun ej/bash-history ()
-  (interactive)
-  (helm
-   :sources (helm-build-sync-source "Bash history"
-              :candidates (vc--read-lines "~/.bash_history")
-              :action #'insert
-              :fuzzy-match t)
-   :buffer "*Bash history*"))
-
-(define-key shell-mode-map (kbd "M-s-r") #'ej/bash-history)
 #+end_src
 * ORG configuration
 ** base org config
