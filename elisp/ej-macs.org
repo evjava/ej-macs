@@ -76,7 +76,7 @@
 
 ;;;; behavior
 ;; remove the prompt for killing emacsclient buffers
-(defalias 'yes-or-no-p 'y-or-n-p) ; ask emacs be laconic and brief
+(setq use-short-answers t) ; ask emacs be laconic and brief
 (remove-hook 'kill-buffer-query-functions 'server-kill-buffer-query-function)
 (add-hook 'comint-output-filter-functions 'comint-watch-for-password-prompt)
 
@@ -435,18 +435,27 @@
       (setq ej/shell-cnt (1+ ej/shell-cnt))
       (shell new-shell-buffer-name))))
 
-(defun ej/switch-to-next-shell ()
-  (interactive)
+(defun extract-int (str)
+  (when (string-match "\\([0-9]+\\)" str)
+    (string-to-number (match-string 1 str))))
+
+(defun ej/get-shell-buffers ()
   (let* ((buffers (-map #'buffer-name (buffer-list)))
          (shell-buffers (--filter (string-match "\\*shell\\*<[0-9]+>$" it) buffers))
-         (sorted-shell-buffers (-sort (-on #'< #'extract-int) shell-buffers))
-         (len (length sorted-shell-buffers))
-         (cur-buf (buffer-name))
-         (idx-0 (-elem-index cur-buf sorted-shell-buffers))
-         (idx (or idx-0 (1- len)))
-         (next-idx (mod (1+ idx) len))
-         (next-buf (elt sorted-shell-buffers next-idx)))
-    (switch-to-buffer next-buf)))
+         ) shell-buffers))
+
+(defun ej/switch-to-prev-shell ()
+  (interactive)
+  (-if-let (shell-buffers (ej/get-shell-buffers))
+      (let* ((sorted-shell-buffers (-sort (-on #'< #'extract-int) shell-buffers))
+             (len (length sorted-shell-buffers))
+             (cur-buf (buffer-name))
+             (idx-0 (-elem-index cur-buf sorted-shell-buffers))
+             (idx (or idx-0 0))
+             (next-idx (mod (+ len (1- idx)) len))
+             (next-buf (elt sorted-shell-buffers next-idx)))
+        (switch-to-buffer next-buf))
+    (message "No *shell*<N> buffers found!")))
 
 (defun rename-shell (new-shell-name)
   (interactive "senter new shell name: ")
@@ -455,9 +464,9 @@
 (global-set-key (kbd "s-n") 'ej/shell-1-or-else)
 (global-set-key (kbd "s-m") (lambda () (interactive) (shell "*shell*<2>")))
 (global-set-key (kbd "s-,") (lambda () (interactive) (shell "*shell*<3>")))
-;; (global-set-key (kbd "s-.") (lambda () (interactive) (shell "*shell*<4>")))
+(global-set-key (kbd "s-.") (lambda () (interactive) (shell "*shell*<4>")))
 ;; (global-set-key (kbd "s-/") (lambda () (interactive) (shell "*shell*<5>")))
-(global-set-key (kbd "M-s-n") 'ej/switch-next-shell)
+(global-set-key (kbd "M-s-n") 'ej/switch-to-prev-shell)
 #+end_src
 *** local shortcuts
 #+begin_src emacs-lisp
@@ -505,12 +514,17 @@ Can't complete name if there are only one variant
   (insert text)
   (comint-send-input))
 
+(defun ej/modified-git-files ()
+  (s-split "\n" (shell-command-to-string "git ls-files -m")))
+
 (defhydra ej/shell-helper (:columns 1 :foreign-keys warn :exit t)
   "shell helper"
   ("p" (insert-send "import pandas as pd") "import pandas as pd")
   ("P" (insert-send "from pathlib import Path") "from pathlib import Path")
   ("c" (insert-send "from collections import Counter, defaultdict") "Counter & defaultdict")
   ("l" (insert-send "alias l=\"ls -al\"") "alias l=\"ls -al\"")
+  ("s" (insert "chmod +x *.sh") "chmod +x *sh")
+  ("g" (insert (completing-read "Choose" (ej/modified-git-files))) "choose modified git file")
   )
 
 (defun ej/shell-hook ()
@@ -634,6 +648,19 @@ Emacs usually freezes when I try to open a djvu-file.
     (set-face-attribute 'helm-selection nil
                         :background "#3d5666" :foreground "white"))
   )
+
+(defun ej/set-theme-dired-subtree ()
+  (let* ((color-code-start (if (eq *ej/current-theme* *ej/theme-dark*) 0 255))
+         (color-code-shift (if (eq *ej/current-theme* *ej/theme-dark*) 10 -10)))
+    (cl-loop
+     with cur-shift = color-code-start
+     for ii from 1 to 6
+     do (setq cur-shift (+ cur-shift color-code-shift))
+     for cs-hex = (format "%02x" cur-shift)
+     for rgb = (concat "#" (s-repeat 3 cs-hex))
+     for attr = (intern (format "dired-subtree-depth-%d-face" ii))
+     do (set-face-attribute attr nil :background rgb))))
+  
 (defun ej/set-light-theme ()
   (interactive)
   (message "setting light theme...")
@@ -729,7 +756,7 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
 (add-to-list 'auto-mode-alist '("\.g4$" . antlr-mode))
 
 ;; for dabbrev-expand
-(setq dabbrev-abbrev-skip-leading-regexp "'")
+(setq dabbrev-abbrev-skip-leading-regexp "[='/]")
 #+end_src
 ** python
 *** common
@@ -797,7 +824,7 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
          (parsed-lines (--map (ej/parse-flake8-line it) lines))
          ) parsed-lines))
 
-(defun ej/annotate-py-with-flake8 ()
+(defun ej/annotate-py-with-flake8 (&optional goto-first)
   (interactive)
   (save-buffer)
   (let* ((parsed-lines (ej/flake8-parsed-lines (buffer-file-name)))
@@ -814,7 +841,8 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
            do (message "chunk: %S" chunk)
            do (ej/inline-flake8-chunk chunk)))
         (message "goto: %s" pos-x)
-        (goto-line pos-x)))))
+        (when goto-first
+          (goto-line pos-x))))))
 
 (defun ej/flake8-warn-keys-for-cur-line ()
   (interactive)
@@ -837,6 +865,18 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
       (beginning-of-line)
       (ej/annotate-py-with-flake8))))
 #+end_src
+*** python elpy
+#+begin_src elisp
+(defun elpy-rgrep-symbol-after (&rest args)
+  (other-window 1)
+  (forward-line 4))
+
+(use-package elpy
+  :defer t
+  :config
+  (advice-add 'elpy-rgrep-symbol :after #'elpy-switch-window)
+  (elpy-enable))
+#+end_src
 *** python interactive
 #+begin_src emacs-lisp
 (setq 
@@ -852,19 +892,21 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
 	(
    "Annotations"
 	 (
-    ("s-i" iove/annotate :exit t)
+    ("s-i" iove/annotate)
     ("s-l" ej/annotate-py-with-flake8 "flake-8")
-    ("f" ej/annotate-py-with-flake8 "flake-8")
+    ("f" (ej/annotate-py-with-flake8 t) "flake-8")
     ("n" ej/noqa-fix "noqa-fix")
     ("N" (ej/noqa-fix "intended") "noqa-fix-intended")
+    ("v" vc-annotate "vc-annotate")
 		)
 	 
 	 "Code actions"
 	 (("g" ej/jump-go "dumb-jump-go wrapper")
 		("b" dumb-jump-back "dumb-jump-back")
+    ("?" elpy-rgrep-symbol "find-symbol")
 		(";" ej/comment-and-next-line "comment and next line" :exit nil)
 		("TAB" ej/indent-and-next-line "Indent and next line" :exit nil)
-		("<C-tab>" ej/indent-until-end-of-sexp "Indent until end of sexp" :exit t)
+		("<C-tab>" ej/indent-until-end-of-sexp "Indent until end of sexp")
     ("i" (helm
         :sources  (helm-build-sync-source "Add Python snippet"
                     :candidates ej/python-snippets
@@ -872,13 +914,15 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
                     :fuzzy-match t)
         :buffer "*helm suggestion latex header*") "completions")
 		("w" ej/copy-sexp-at-point "copy last sexp")
-    ("b" (insert "breakpoint()") "breakpoint")
-    ("a" (insert "from pathlib import Path") "from pathlib import Path")
-    ("m" (insert "if __name__ == '__main__':\n    ") "if __name__ == '__main__'")
 		)
 	 
 	 "Templates"
-	 ()
+	 (
+    ("p" (insert "breakpoint()") "breakpoint")
+    ("a" (insert "from pathlib import Path") "from pathlib import Path")
+    ("m" (insert "if __name__ == '__main__':\n    ") "if __name__ == '__main__'")
+    ("E" (insert "ensure_ascii=False, indent=2)") "ensure_ascii=False, indent=2")
+    )
 	 
 	 "Etc"
 	 (
@@ -956,6 +1000,7 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
 (autoload 'js2-mode "js2" nil t)
 ; (require 'nodejs-repl)
 (add-to-list 'auto-mode-alist '("\\.json$" . js-mode))
+(add-to-list 'auto-mode-alist '("\\.jsonl$" . js-mode))
 (add-hook 'js2-mode-hook 'ac-js2-mode)
 (setq js2-highlight-level 3)
 (setq js-indent-level 2)
@@ -1572,7 +1617,10 @@ Need to run
 ** dired-subtree
 #+begin_src emacs-lisp
 (use-package dired-subtree
-  :bind (:map dired-mode-map ("i" . 'dired-subtree-toggle)))
+  :bind
+  (:map dired-mode-map ("i" . 'dired-subtree-toggle))
+  :config
+  (ej/set-theme-dired-subtree))
 #+end_src
 ** yafolding
 #+begin_src emacs-lisp
@@ -2193,6 +2241,7 @@ C-u 0 M-x enumerate-rectangle"
 (defun ej/diff ()
   (interactive)
   (ej/diff-helper "diff" tmp-name3-diff))
+(global-set-key (kbd "C-M-=") #'ej/diff)
 
 (defun ej/patch-wdiff (regexp color)
   (beginning-of-buffer)
@@ -2578,12 +2627,14 @@ same directory as the org-buffer and insert a link to this file."
   " copy buffer content "
   (buffer-substring-no-properties (point-min) (point-max)))
 
-(defun ej/is-python-in-command ()
+(defun ej/is-not-interesting-command ()
   (save-excursion
     (move-beginning-of-line 1)
     (let* ((cmd (thing-at-point 'line))
-           (py-words '("python" "pytest" "PYTHONPATH" "flake8"))
-           (res (and cmd (--any? (s-contains? it cmd) py-words)))
+           (res (or
+                 (null cmd)
+                 (s-starts-with? "rg " cmd)
+                 (< (length cmd) 3)))
            ) res)))
 
 (defun ej/is-inside-program ()
@@ -2600,9 +2651,10 @@ same directory as the org-buffer and insert a link to this file."
         (message "Other window isn't shell!")
       (goto-char (point-max))
       (when (ej/is-inside-program)
-        (comint-send-eof))
+        (comint-send-eof)
+        (sit-for 0.2))
       (if (not is-py) (comint-previous-input 1)
-        (while (not (ej/is-python-in-command))
+        (while (ej/is-not-interesting-command)
           (comint-previous-input 1)))
       (comint-send-input)
       (other-window -1))))
@@ -2780,6 +2832,55 @@ same directory as the org-buffer and insert a link to this file."
     (insert (read text))
     (goto-char (point-min))))
 #+end_src
+** find-file-at-point-with-line
+#+begin_src elisp
+(require 'ffap)
+
+(defun find-file-at-point-with-line (&optional filename)
+  "Opens file at point and moves point to line specified next to file name."
+  (interactive)
+  (let* ((filename (or filename (if current-prefix-arg (ffap-prompter) (ffap-guesser))))
+         (line-number
+          (and (or (looking-at ".* line \\(\[0-9\]+\\)")
+                   (looking-at "[^:]*[\\(:]\\(\[0-9\]+\\)"))
+               (string-to-number (match-string-no-properties 1))))
+         (column-number
+          (or 
+           (and (looking-at "[^:]*:\[0-9\]+:\\(\[0-9\]+\\)")
+                (string-to-number (match-string-no-properties 1)))
+           (let 'column-number 0))))
+    (cond ((ffap-url-p filename)
+           (let (current-prefix-arg)
+             (funcall ffap-url-fetcher filename)))
+          ((and line-number
+                (file-exists-p filename))
+           (progn (find-file filename)
+                  (goto-char (point-min))
+                  (forward-line (1- line-number))
+                  (forward-char column-number)))
+          ((and ffap-pass-wildcards-to-dired
+                ffap-dired-wildcards
+                (string-match ffap-dired-wildcards filename))
+           (funcall ffap-directory-finder filename))
+          ((and ffap-dired-wildcards
+                (string-match ffap-dired-wildcards filename)
+                find-file-wildcards
+                ;; Check if it's find-file that supports wildcards arg
+                (memq ffap-file-finder '(find-file find-alternate-file)))
+           (funcall ffap-file-finder (expand-file-name filename) t))
+          ((or (not ffap-newfile-prompt)
+               (file-exists-p filename)
+               (y-or-n-p "File does not exist, create buffer? "))
+           (funcall ffap-file-finder
+                    ;; expand-file-name fixes "~/~/.emacs" bug sent by CHUCKR.
+                    (expand-file-name filename)))
+          ;; User does not want to find a non-existent file:
+          ((signal 'file-error (list "Opening file buffer"
+                                     "no such file or directory"
+                                     filename))))))
+
+(global-set-key (kbd "s-g") #'find-file-at-point-with-line)
+#+end_src
 * ORG configuration
 ** base org config
 #+begin_src emacs-lisp
@@ -2787,6 +2888,7 @@ same directory as the org-buffer and insert a link to this file."
 (setq calendar-week-start-day 1)
 (setq org-log-done nil)
 (setq org-image-actual-width '(500))
+(setq org-duration-format 'h:mm)
 (require 'org-id)
 
 (global-set-key (kbd "C-c c") 'org-capture)
@@ -3312,7 +3414,9 @@ Simplifies filling of (nested) checklist.
   (let* ((detected-lang (symbol-name (language-detection-string snippet))))
     (pcase detected-lang
       ("awk" "elisp")
+      ("lisp" "elisp")
       ("emacslisp" "elisp")
+      ("json" "js")
       (_ detected-lang))))
 
 (defun ej/wrap-src-interactive ()
