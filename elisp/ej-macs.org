@@ -523,7 +523,7 @@ Can't complete name if there are only one variant
   ("P" (insert-send "from pathlib import Path") "from pathlib import Path")
   ("c" (insert-send "from collections import Counter, defaultdict") "Counter & defaultdict")
   ("l" (insert-send "alias l=\"ls -al\"") "alias l=\"ls -al\"")
-  ("s" (insert "chmod +x *.sh") "chmod +x *sh")
+  ("s" (insert "chmod +x *.sh") "chmod +x *.sh")
   ("g" (insert (completing-read "Choose" (ej/modified-git-files))) "choose modified git file")
   )
 
@@ -874,7 +874,7 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
 (use-package elpy
   :defer t
   :config
-  (advice-add 'elpy-rgrep-symbol :after #'elpy-switch-window)
+  (advice-add 'elpy-rgrep-symbol :after #'elpy-rgrep-symbol-after)
   (elpy-enable))
 #+end_src
 *** python interactive
@@ -2650,7 +2650,7 @@ same directory as the org-buffer and insert a link to this file."
     (if (not (equal major-mode 'shell-mode))
         (message "Other window isn't shell!")
       (goto-char (point-max))
-      (when (ej/is-inside-program)
+      (while (ej/is-inside-program)
         (comint-send-eof)
         (sit-for 0.2))
       (if (not is-py) (comint-previous-input 1)

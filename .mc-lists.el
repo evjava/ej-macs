@@ -18,6 +18,7 @@
         comint-delchar-or-maybe-eof
         dabbrev-expand
         dired-clean-directory
+        dired-find-file-other-window
         dired-toggle-read-only
         ej/add-line-item
         ej/copy-all
