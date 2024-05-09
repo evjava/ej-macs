@@ -5,6 +5,7 @@
       '(
         LaTeX-insert-left-brace
         TeX-insert-backslash
+        TeX-insert-dollar
         backward-sexp
         backward-up-list
         c-electric-colon
@@ -20,6 +21,7 @@
         dired-clean-directory
         dired-find-file-other-window
         dired-toggle-read-only
+        downcase-region
         ej/add-line-item
         ej/copy-all
         ej/eval-replace
@@ -79,6 +81,7 @@
         dired-next-line
         dired-previous-line
         dired-subtree-toggle
+        dired-unmark
         kill-rectangle
         kmacro-end-and-call-macro
         yaml-electric-dash-and-dot

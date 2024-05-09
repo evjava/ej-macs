@@ -1442,7 +1442,20 @@ https://github.com/volrath/treepy.el
   :config
   (eros-mode 1))
 #+end_src
-** java: amstools
+** java
+*** java-interactive
+#+begin_src emacs-lisp
+(defhydra ej/java-interactive (:exit t)
+  ("v" vc-annotate "vc-annotate")
+  ("g" ej/jump-go "dumb-jump-go wrapper")
+	("b" dumb-jump-back "dumb-jump-back")
+  )
+(defun ej/java-hook ()
+  (local-set-key (kbd "s-l") 'ej/java-interactive/body))
+
+(add-hook 'java-mode-hook 'ej/java-hook)
+#+end_src
+*** amstools
 #+begin_src emacs-lisp
 (defvar tmp-java-dir "/tmp/java")
 
