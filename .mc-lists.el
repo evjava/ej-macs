@@ -81,6 +81,7 @@
         dired-next-line
         dired-previous-line
         dired-subtree-toggle
+        ej/tab-to-previous-buffer
         dired-unmark
         kill-rectangle
         kmacro-end-and-call-macro
