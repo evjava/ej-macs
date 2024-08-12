@@ -464,7 +464,7 @@
 (global-set-key (kbd "s-m") (lambda () (interactive) (shell "*shell*<2>")))
 (global-set-key (kbd "s-,") (lambda () (interactive) (shell "*shell*<3>")))
 (global-set-key (kbd "s-.") (lambda () (interactive) (shell "*shell*<4>")))
-;; (global-set-key (kbd "s-/") (lambda () (interactive) (shell "*shell*<5>")))
+(global-set-key (kbd "s-/") (lambda () (interactive) (shell "*shell*<5>")))
 (global-set-key (kbd "M-s-n") 'ej/switch-to-prev-shell)
 #+end_src
 *** local shortcuts
@@ -478,13 +478,13 @@
               :fuzzy-match t)
    :buffer "*Bash history*"))
 
-(defun rename-shell (new-shell-name)
+(defun ej/rename-shell (new-shell-name)
   (interactive "senter new shell name: ")
   (rename-buffer (format "*shell*<%s>" new-shell-name)))
 
+(define-key shell-mode-map (kbd "C-c s-r") #'ej/rename-shell)
 (define-key shell-mode-map (kbd "M-s-r") #'ej/bash-history)
 (define-key shell-mode-map (kbd "s-t") #'toggle-truncate-lines)
-(define-key shell-mode-map (kbd "C-c s-r") #'rename-shell)
 #+end_src
 *** advice: disable asking
 https://stackoverflow.com/questions/2706527/make-emacs-stop-asking-active-processes-exist-kill-them-and-exit-anyway
@@ -516,6 +516,24 @@ Can't complete name if there are only one variant
 (defun ej/modified-git-files ()
   (s-split "\n" (shell-command-to-string "git ls-files -m")))
 
+(setq ej/branches-cmd "git branch --list --sort=-committerdate")
+(setq ej/handy-letters "asdfjklghqwertyuiopvbnm")
+
+(defun ej/switch-branch ()
+  (interactive)
+  (let* ((branches-output (shell-command-to-string ej/branches-cmd))
+         (branches-0 (s-split "\n" (s-trim branches-output)))
+         (branches-1 (--filter (not (s-starts-with? "*" it)) branches-0))
+         (branches (-map #'s-trim branches-1))
+         (pairs (-zip (string-to-list ej/handy-letters) branches))
+         (sexp (--map `(,(format "%c" (car it)) (insert-send ,(format "git co %s" (cdr it))) ,(cdr it)) pairs))
+         )
+    (call-interactively (eval
+                         `(defhydra hydra-switch-branch (:exit t :columns 1 :foreign-keys warn)
+                            "Hydra switch branch"
+                            ,@sexp
+                            ("\t\tq" nil "quit"))))))
+
 (defhydra ej/shell-helper (:columns 1 :foreign-keys warn :exit t)
   "shell helper"
   ("p" (insert-send "import pandas as pd") "import pandas as pd")
@@ -524,6 +542,11 @@ Can't complete name if there are only one variant
   ("l" (insert-send "alias l=\"ls -al\"") "alias l=\"ls -al\"")
   ("s" (insert "chmod +x *.sh") "chmod +x *.sh")
   ("g" (insert (completing-read "Choose" (ej/modified-git-files))) "choose modified git file")
+  ("L" (insert-send "git branch --list --sort=-committerdate") "insert `git branch --list`")
+  ("!" (insert-send "git co -") "git co -")
+  ("b" (ej/switch-branch) "switch branch")
+  ("j" (insert "python -m json.tool --no-ensure-ascii") "python prettify via json.tool")
+  ("?" elpy-rgrep-symbol "find-symbol")
   )
 
 (defun ej/shell-hook ()
@@ -654,10 +677,10 @@ Emacs usually freezes when I try to open a djvu-file.
 ** themes
 #+begin_src emacs-lisp
 ;; https://emacs.stackexchange.com/questions/24088/make-a-function-to-toggle-themes
-(defvar *ej/theme-dark* 'tron-legacy)
-(defvar *ej/theme-light* 'leuven)
-(defvar *ej/current-theme* nil)
-(defvar *ej/theme-location* last-theme-file)
+(setq *ej/theme-dark* 'tron-legacy)
+(setq *ej/theme-light* 'leuven)
+(setq *ej/current-theme* nil)
+(setq *ej/theme-location* last-theme-file)
 
 (defun ej/set-dark-theme ()
   (interactive)
@@ -771,11 +794,12 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
 (setq inferior-lisp-program "/usr/bin/clisp")
 
 ;; for bash
-(add-to-list 'auto-mode-alist '("\.bash_aliases$" . shell-script-mode))
-(add-to-list 'auto-mode-alist '("\.bash_path$" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.bash_aliases$" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.bash_path$" . shell-script-mode))
 
-(add-to-list 'auto-mode-alist '("\.m$" . octave-mode))
-(add-to-list 'auto-mode-alist '("\.g4$" . antlr-mode))
+(add-to-list 'auto-mode-alist '("\\.m$" . octave-mode))
+(add-to-list 'auto-mode-alist '("\\.g4$" . antlr-mode))
+(add-to-list 'auto-mode-alist '("\\..codespellrc" . conf-unix-mode))
 
 ;; for dabbrev-expand
 (setq dabbrev-abbrev-skip-leading-regexp "[='/]")
@@ -942,7 +966,8 @@ Loads =nav-nav= from directory with =nav-nav= if exists and via quelpa otherwise
 	 (
     ("p" (insert "breakpoint()") "breakpoint")
     ("a" (insert "from pathlib import Path") "from pathlib import Path")
-    ("m" (insert "if __name__ == '__main__':\n    ") "if __name__ == '__main__'")
+    ("m" (insert "def main():\n    pass\n\nif __name__ == '__main__':\n    main()") "if __name__ == '__main__'")
+    ("M" (insert "async def main():\n    pass\n\nif __name__ == '__main__':\n    asyncio.run(main())") "if __name__ == '__main__' (async)")
     ("E" (insert "ensure_ascii=False, indent=2)") "ensure_ascii=False, indent=2")
     )
 	 
@@ -1531,7 +1556,10 @@ https://github.com/volrath/treepy.el
 ** docker
 #+begin_src emacs-lisp
 (use-package dockerfile-mode
-  :defer t)
+  :defer t
+  :config
+  (add-to-list 'auto-mode-alist '("\\Dockerfile.*$" .dockerfile-mode))
+)
 
 (use-package docker
   :ensure t
@@ -2133,7 +2161,9 @@ Inserts time in different formats.
   (11 . "%a <Dec> %d %H:%M:%S %Y")
   (16 . "[%Y-%m-%d %a]")
   (17  . "%d.%m.%y-%H:%M")
+  (18  . ((lambda (time) (time-subtract time (seconds-to-time (* 3 3600)))) . "%Y-%m-%dT%H:%M:%SZ"))
   ))
+
 (setq TIME-FORMAT-DEFAULT "%H:%M")
 
 (defun ej/insert-time (&optional mode)
@@ -2142,22 +2172,39 @@ Inserts time in different formats.
       (ej/insert-time-hydra)
     (ej/insert-time-key mode)))
 
-;; todo make also good-looking modes (for typing (ej/insert-time 'full-date))
-(defun ej/insert-time-key (&optional mode)
-  (let* ((time-entry (assoc mode TIME-FORMATS))
-         (time-fmt (if (null time-entry) TIME-FORMAT-DEFAULT (cdr time-entry))))
-    (insert (format-time-string time-fmt (current-time)))))
+(defun ej/apply-time-maker (time-maker-object time)
+  (let* ((time-maker-entry (if (stringp time-maker-object)
+                               (cons (lambda (time) time) time-maker-object)
+                             time-maker-object))
+         (time-fmt (cdr time-maker-entry))
+         (time-mdf (car time-maker-entry))
+         (res (format-time-string time-fmt (funcall time-mdf (current-time))))
+         ) res))
 
-(defun ej/time-to-hydra-time (f)
+(defun ej/make-pretty-time (mode)
+  (let* ((time-entry (assoc mode TIME-FORMATS))
+         (time-maker-object (if (null time-entry) TIME-FORMAT-DEFAULT (cdr time-entry)))
+         (res (ej/apply-time-maker time-maker-object (current-time)))
+         ) res))
+
+(defun ej/insert-time-key (&optional mode)
+  (insert (ej/make-pretty-time mode)))
+
+(defun ej/time-to-hydra-time (f time)
   (let ((key (car f))
-        (time (format-time-string (cdr f))))
+        (time (ej/apply-time-maker (cdr f) time)))
     (list (format "\t\t%s" key) `(insert ,time) time)))
+
+(defun ej/time-hydra-sexp ()
+  (let* ((num-ch-subs '((10 . "a") (11 . "b") (16 . "s") (17 . "k") (18 . "l")))
+         (hydra-time-formats (cl-sublis num-ch-subs TIME-FORMATS))
+         (time (current-time))
+         (sexp (--map (ej/time-to-hydra-time it time) hydra-time-formats))
+         ) sexp))
 
 (defun ej/insert-time-hydra ()
   (interactive)
-  (let* ((num-ch-subs '((10 . "a") (11 . "b") (16 . "s") (17 . "k")))
-         (hydra-time-formats (cl-sublis num-ch-subs TIME-FORMATS))
-         (sexp (-map #'ej/time-to-hydra-time hydra-time-formats)))
+  (let* ((sexp (ej/time-hydra-sexp)))
     (call-interactively (eval
                          `(defhydra hydra-insert-time (:exit t :columns 1 :foreign-keys warn)
                             "Hydra insert time"
@@ -3437,12 +3484,11 @@ Simplifies filling of (nested) checklist.
 (setq MD-BASE-SUFF "```")
 
 (defun ej/wrap-src (lang)
-  (let* ((snippet (buffer-substring-no-properties (mark) (point)))
-         (pref-base (if (equal major-mode 'org-mode) ORG-BASE-PREF MD-BASE-PREF))
-         (suff-base (if (equal major-mode 'org-mode) ORG-BASE-SUFF MD-BASE-SUFF))
-         (pref (format "%s%s\n" pref-base lang))
-         (suff (format "%s%s\n" suff-base (if (zerop (current-column)) "" "\n")))
-         (block (format "%s%s%s" pref snippet suff)))
+  (let* ((snippet (s-trim (buffer-substring-no-properties (mark) (point))))
+         (pref (if (equal major-mode 'org-mode) ORG-BASE-PREF MD-BASE-PREF))
+         (suff (if (equal major-mode 'org-mode) ORG-BASE-SUFF MD-BASE-SUFF))
+         (mb-newline (if (zerop (current-column)) "\n" ""))
+         (block (s-concat pref lang "\n" snippet "\n" suff mb-newline)))
     (kill-region (mark) (point))
     (insert block)))
 
