@@ -1536,7 +1536,7 @@ https://github.com/volrath/treepy.el
 (use-package dockerfile-mode
   :defer t
   :config
-  (add-to-list 'auto-mode-alist '("\\Dockerfile.*$" .dockerfile-mode))
+  (add-to-list 'auto-mode-alist '("\\Dockerfile.*$" . dockerfile-mode))
 )
 
 (use-package docker
@@ -2896,10 +2896,29 @@ same directory as the org-buffer and insert a link to this file."
 #+begin_src elisp
 (require 'ffap)
 
+(defun ej/open-go (filename line-number column-number token)
+  (find-file filename)
+  (cond
+   ((and (not (null line-number)) (/= 0 line-number))
+    (progn (goto-char (point-min))
+           (forward-line (1- line-number))
+           (forward-char column-number)))
+   ((not (null token))
+     (progn (goto-char (point-min))
+            (search-forward token)))
+   ))
+
+(defun ej/ffap-guesser (arg)
+  (with-temp-buffer
+    (insert arg)
+    (goto-char (point-max))
+    (ffap-guesser)))
+
 (defun find-file-at-point-with-line (&optional filename)
   "Opens file at point and moves point to line specified next to file name."
   (interactive)
   (let* ((filename (or filename (if current-prefix-arg (ffap-prompter) (ffap-guesser))))
+         (filename-fix (ej/ffap-guesser (substring (s-replace "." "/" (car (s-split ":" (ffap-guesser)))) 1)))
          (line-number
           (and (or (looking-at ".* line \\(\[0-9\]+\\)")
                    (looking-at "[^:]*[\\(:]\\(\[0-9\]+\\)"))
@@ -2908,16 +2927,16 @@ same directory as the org-buffer and insert a link to this file."
           (or 
            (and (looking-at "[^:]*:\[0-9\]+:\\(\[0-9\]+\\)")
                 (string-to-number (match-string-no-properties 1)))
-           (let 'column-number 0))))
+           (let 'column-number 0)))
+          (token
+           (and (looking-at "[^:\\n]*:\\(\\w+\\)")
+                (match-string-no-properties 1)))
+          )
     (cond ((ffap-url-p filename)
            (let (current-prefix-arg)
              (funcall ffap-url-fetcher filename)))
-          ((and line-number
-                (file-exists-p filename))
-           (progn (find-file filename)
-                  (goto-char (point-min))
-                  (forward-line (1- line-number))
-                  (forward-char column-number)))
+          ((file-exists-p filename) (ej/open-go filename line-number column-number token))
+          ((file-exists-p filename-fix) (ej/open-go filename-fix line-number column-number token))
           ((and ffap-pass-wildcards-to-dired
                 ffap-dired-wildcards
                 (string-match ffap-dired-wildcards filename))
