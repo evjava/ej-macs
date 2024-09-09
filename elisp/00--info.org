@@ -1,0 +1,23 @@
+#+TITLE: evjavacs
+#+AUTHOR: Eugene Tagin
+#+STARTUP: showall
+#+LATEX_HEADER: \usepackage[english,russian]{babel}
+
+- NAV ::
+  - [[../init.el]]
+  - [[../custom.el]]
+  - [[https://github.com/jwiegley/use-package][github: use-package]]
+  - this file: [[calculator]], [[links-navigation]], [[time-inserter]], [[org-add-line-item]]
+- Remember or discover ::
+  - =C-x z=   - run last command
+  - =C-c '=   - org-edit-src-code
+  - =M-:=     - eval-expression
+  - <M-RET>   - update dir in shell
+  - =apropos= - search docs
+  - =org-download=
+  - ej/search-next -- search next entered character
+  - kill-sexp-at-point
+  - positions
+    - current point  - =(point)=
+    - current line   - =(line-number-at-pos)=
+    - current indent - =(current-column)=

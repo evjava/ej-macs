@@ -24,7 +24,5 @@ places
 tramp
 eln-cache/
 .org-id-locations
-/elisp/ej-macs.el
-/elisp/ej-macs.pdf
-/elisp/ej-macs.tex
-/elisp/ej-macs.bbl
+devdocs
+triples.db
