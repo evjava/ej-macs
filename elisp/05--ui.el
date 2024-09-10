@@ -79,19 +79,21 @@
 
 (defun ej/sync-cache-dir ()
   (cl-flet ((sync-once ()
-                       (eq (equal (ej/swap-cache-dir) 'dark)
-                           (eq *ej/current-theme* *ej/theme-dark*))))
+              (eq (equal (ej/swap-cache-dir) 'dark)
+                  (eq *ej/current-theme* *ej/theme-dark*))))
     (cl-loop until (sync-once))))
+
 (defun ej/toggle-theme ()
   (interactive)
   (let ((theme (if (eq *ej/current-theme* *ej/theme-dark*) 
-                   ,*ej/theme-light*
-                 ,*ej/theme-dark*)))
+                   *ej/theme-light*
+                 *ej/theme-dark*)))
     (ej/set-theme theme)))
 ;; (ej/toggle-theme)
+
 (defun load-theme-on-start ()
 	(let ((theme (if (not (file-exists-p *ej/theme-location*))
-									 ,*ej/theme-dark*
+									 *ej/theme-dark*
 								 (read (get-string-from-file *ej/theme-location*)))))
 		(ej/set-theme theme)))
 (load-theme-on-start)
