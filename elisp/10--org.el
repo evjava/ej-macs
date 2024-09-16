@@ -3,6 +3,15 @@
 (setq org-log-done nil)
 (setq org-image-actual-width '(500))
 (setq org-duration-format 'h:mm)
+(setq
+ org-duration-units
+ (list
+  (cons "min" 1)
+  (cons "h"   60)
+  (cons "d"   (* 100500 1440))
+  (cons "w"   10080)
+  (cons "m"   43200)
+  (cons "y"   525960.0)))
 (require 'org-id)
 
 (global-set-key (kbd "C-c c") 'org-capture)

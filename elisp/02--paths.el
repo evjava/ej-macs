@@ -44,4 +44,5 @@
 (defvar latex-headers-file nil "latex headers file for completions")
 (defvar asmtools-jar-path nil "path to amstools.jar")
 
-(load-ignore-error "~/.emacs.d.private/private-paths.el")
+(setq private-emacs-config-dir "~/.emacs.d.private")
+(load-ignore-error (expand-file-name "private-paths.el" private-emacs-config-dir))
