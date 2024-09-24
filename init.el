@@ -17,7 +17,7 @@
 (load-el "elisp/03--nav-nav.el")
 (load-el "elisp/04--helm-hydra.el")
 (load-el "elisp/05--ui.el")
-(load-el "elisp/06--shell--interactive.el")
+(load-el "elisp/06--interactive.el")
 (load-el "elisp/07--dev.el")
 (load-el "elisp/08--modules.el")
 (load-el "elisp/09--functions.el")
