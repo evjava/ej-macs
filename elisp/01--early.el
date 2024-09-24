@@ -301,28 +301,35 @@
 ;; (debug-on-variable-change 'dired-async-mode)
 
 ;; dired: ext
-(defun ej/dired-open-in-external-app ()
+(defun ej/open-in-external-app (fpath)
+  (pcase system-type
+    ('gnu/linux  (let ((process-connection-type nil)) (start-process "" nil "xdg-open" fpath)))
+    ('windows-nt (w32-shell-execute "open" (s-replace "/" "\\" fpath t t)))
+    ('darwin     (let ((process-connection-type nil)) (start-process "" nil "open" fpath)))
+    (_ (message "Unrecognized system-type: %s" system-type))))
+
+(defun ej/open-in-external-app-dired ()
   " Open the current file or dired marked files in external app. 
     Works in Microsoft Windows, Mac OS X, Linux. "
   (interactive)
-  (let ( doIt
-         (myFileList
-          (cond
-           ((string-equal major-mode "dired-mode") (dired-get-marked-files))
-           (t (list (buffer-file-name))))))
+  (let* ((files (cond
+                 ((equal major-mode 'dired-mode) (dired-get-marked-files))
+                 (t (list (buffer-file-name)))))
+         (accept (or
+                  (<= (length files) 5)
+                  (y-or-n-p "Open more than 5 files?"))))
+    (when accept
+      (--map (ej/open-in-external-app it) files))))
 
-    (setq doIt (if (<= (length myFileList) 5)
-                   t
-                 (y-or-n-p "Open more than 5 files?")))
-    (when doIt
-      (cond
-       ((string-equal system-type "windows-nt")
-        (--map (w32-shell-execute "open" (s-replace "/" "\\" it t t)) myFileList))
-       ((string-equal system-type "darwin")
-        (--map (let ((process-connection-type nil)) (start-process "" nil "open" it))  myFileList))
-       ((string-equal system-type "gnu/linux")
-        (--map (let ((process-connection-type nil)) (start-process "" nil "xdg-open" it)) myFileList))))))
-(global-set-key (kbd "<f10>") 'ej/dired-open-in-external-app)
+(defun ej/open-in-external-app-at-point ()
+  (interactive)
+  (let* ((fpath (thing-at-point 'filename)))
+    (if (null fpath) (message "File not found: %s" fpath)
+      (message "Going to open: %s" fpath)
+      (ej/open-in-external-app fpath))))
+
+(global-set-key (kbd "<f10>") 'ej/open-in-external-app-dired)
+(global-set-key (kbd "S-<f10>") 'ej/open-in-external-app-at-point)
 
 ;; dired: add-date
 (defun ej/dired-file-name-add-date ()
@@ -399,12 +406,31 @@
 (defun rename-shell (new-shell-name)
   (interactive "senter new shell name: ")
   (rename-buffer (format "*shell*<%s>" new-shell-name)))
+
+(defun ej/run-other-window ()
+  (interactive)
+  (save-buffer)
+  (let* ((is-py (s-ends-with? ".py" (buffer-file-name))))
+    (other-window 1)
+    (if (not (equal major-mode 'shell-mode))
+        (message "Other window isn't shell!")
+      (goto-char (point-max))
+      (while (ej/is-inside-program)
+        (comint-send-eof)
+        (sit-for 0.2))
+      (if (not is-py) (comint-previous-input 1)
+        (while (ej/is-not-interesting-command)
+          (comint-previous-input 1)))
+      (comint-send-input)
+      (other-window -1))))
+
 (global-set-key (kbd "s-n") 'ej/shell-1-or-else)
 (global-set-key (kbd "s-m") (lambda () (interactive) (shell "*shell*<2>")))
 (global-set-key (kbd "s-,") (lambda () (interactive) (shell "*shell*<3>")))
 (global-set-key (kbd "s-.") (lambda () (interactive) (shell "*shell*<4>")))
 (global-set-key (kbd "s-/") (lambda () (interactive) (shell "*shell*<5>")))
 (global-set-key (kbd "M-s-n") 'ej/switch-to-prev-shell)
+(global-set-key (kbd "s-j") 'ej/run-other-window)
 (defun ej/bash-history ()
   (interactive)
   (helm

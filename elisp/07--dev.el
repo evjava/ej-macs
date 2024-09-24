@@ -147,8 +147,8 @@
    "Annotations"
 	 (
     ("s-i" iove/annotate)
-    ("s-l" ej/annotate-py-with-flake8 "flake-8")
     ("f" (ej/annotate-py-with-flake8 t) "flake-8")
+    ("F" ej/annotate-py-with-flake8 "flake-8")
     ("n" ej/noqa-fix "noqa-fix")
     ("N" (ej/noqa-fix "intended") "noqa-fix-intended")
     ("v" vc-annotate "vc-annotate")
@@ -168,6 +168,7 @@
                     :fuzzy-match t)
         :buffer "*helm suggestion latex header*") "completions")
 		("w" ej/copy-sexp-at-point "copy last sexp")
+    ("s-j" ej/run-other-window "run other window")
 		)
 	 
 	 "Templates"
@@ -197,8 +198,7 @@
 
 (defun ej/py-interactive-hook ()
   (interactive)
-  (local-set-key (kbd "s-l") 'ej/python-interactive/body)
-  ;; (local-set-key (kbd "s-l") 'iove/annotate)
+  (local-set-key (kbd "s-j") 'ej/python-interactive/body)
   )
 (add-hook 'python-mode-hook 'ej/py-interactive-hook)
 
@@ -663,7 +663,7 @@
 (global-set-key (kbd "C-x s-e") 'ej/eval-replace)
 (global-set-key (kbd "C-x C-S-e") 'ej/eval-replace)
 (defun ej/elisp-hook ()
-  (local-set-key (kbd "s-l") 'ej/elisp-interactive/body)
+  (local-set-key (kbd "s-j") 'ej/elisp-interactive/body)
   (local-set-key (kbd "M-s-t") 'transpose-sexps))
 (add-hook 'emacs-lisp-mode-hook 'ej/elisp-hook)
 

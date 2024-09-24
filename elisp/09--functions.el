@@ -690,25 +690,8 @@ same directory as the org-buffer and insert a link to this file."
     (backward-char 2)
     (not (equal "$" (thing-at-point 'char)))))
 
-(defun ej/run-other-window ()
-  (interactive)
-  (save-buffer)
-  (let* ((is-py (s-ends-with? ".py" (buffer-file-name))))
-    (other-window 1)
-    (if (not (equal major-mode 'shell-mode))
-        (message "Other window isn't shell!")
-      (goto-char (point-max))
-      (while (ej/is-inside-program)
-        (comint-send-eof)
-        (sit-for 0.2))
-      (if (not is-py) (comint-previous-input 1)
-        (while (ej/is-not-interesting-command)
-          (comint-previous-input 1)))
-      (comint-send-input)
-      (other-window -1))))
-
 (defun ej/prog-mode-hook ()
-  (local-set-key (kbd "s-j") #'ej/run-other-window))
+  (local-set-key (kbd "C-<return>") #'ej/run-other-window))
 (add-hook 'prog-mode-hook 'ej/prog-mode-hook)
 
 (setq default-mode-line-format mode-line-format)
@@ -883,8 +866,11 @@ same directory as the org-buffer and insert a link to this file."
            (forward-line (1- line-number))
            (forward-char column-number)))
    ((not (null token))
-     (progn (goto-char (point-min))
-            (search-forward token)))
+    (progn
+      (goto-char (point-min))
+      (condition-case nil
+          (search-forward token)
+        (error nil))))
    ))
 
 (defun ej/ffap-guesser (arg)
