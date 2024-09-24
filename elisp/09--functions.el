@@ -732,6 +732,7 @@ same directory as the org-buffer and insert a link to this file."
   (other-window 1)
   (dired-jump))
 
+(defalias 'async-cmd 'async-shell-command)
 (defhydra ej/hydra-buffers-windows (:foreign-keys warn :columns 1)
   " Hydra navigation stuff "
   ("1" ej/reopen "reopen" :exit t)
