@@ -72,6 +72,7 @@
         wdired-exit
         wdired-next-line
         wdired-previous-line
+        wdired-upcase-word
         yaml-electric-backspace
         zap-up-to-char
         ))
@@ -81,8 +82,8 @@
         dired-next-line
         dired-previous-line
         dired-subtree-toggle
-        ej/tab-to-previous-buffer
         dired-unmark
+        ej/tab-to-previous-buffer
         kill-rectangle
         kmacro-end-and-call-macro
         yaml-electric-dash-and-dot

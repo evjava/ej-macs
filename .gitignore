@@ -27,3 +27,5 @@ eln-cache/
 devdocs
 triples.db
 org-roam.db
+elpy
+%backup%*

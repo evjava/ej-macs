@@ -37,7 +37,7 @@
      for rgb = (concat "#" (s-repeat 3 cs-hex))
      for attr = (intern (format "dired-subtree-depth-%d-face" ii))
      do (set-face-attribute attr nil :background rgb))))
-  
+
 (defun ej/set-light-theme ()
   (interactive)
   (message "setting light theme...")

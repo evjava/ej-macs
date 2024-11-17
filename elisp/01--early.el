@@ -17,6 +17,7 @@
 ;;;; ----- custom
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (load custom-file)
+(setq x-select-enable-clipboard-manager nil)
 
 ;;;; ----- early packages
 (use-package exec-path-from-shell
@@ -430,7 +431,7 @@
 (global-set-key (kbd "s-.") (lambda () (interactive) (shell "*shell*<4>")))
 (global-set-key (kbd "s-/") (lambda () (interactive) (shell "*shell*<5>")))
 (global-set-key (kbd "M-s-n") 'ej/switch-to-prev-shell)
-(global-set-key (kbd "s-j") 'ej/run-other-window)
+(global-set-key (kbd "C-M-<return>") 'ej/run-other-window)
 (defun ej/bash-history ()
   (interactive)
   (helm

@@ -735,7 +735,7 @@ same directory as the org-buffer and insert a link to this file."
 (defalias 'async-cmd 'async-shell-command)
 (defhydra ej/hydra-buffers-windows (:foreign-keys warn :columns 1)
   " Hydra navigation stuff "
-  ("1" ej/reopen "reopen" :exit t)
+  ("!" ej/reopen "reopen" :exit t)
   ("2" ej/split-show-dired "split and dired" :exit t)
   ("3" ej/src-code-with-asmtools "open code block with asmtools" :exit t)
   ("e" split-window-horizontally "split horizontally")
@@ -925,3 +925,24 @@ same directory as the org-buffer and insert a link to this file."
                                      filename))))))
 
 (global-set-key (kbd "s-g") #'find-file-at-point-with-line)
+
+;; files
+(defun remove-top-files (dir files count)
+  (let* ((sub-files (-slice files 0 (min count (length files)))))
+    (--map (delete-file (expand-file-name it dir)) sub-files)))
+
+(setq fregexp "^\\([^.]\\|\\.[^.]\\|\\.\\..\\)")
+(defun get-files-sorted-by-update (dir)
+  (let ((files (sort (directory-files-and-attributes dir nil fregexp)
+    #'(lambda (x y) (not (time-less-p (nth 6 x) (nth 6 y)))))))
+    (--map (car it) files)))
+
+(defun remove-last-files (dir count)
+  (remove-top-files dir (get-files-sorted-by-update dir) count))
+
+;; layout
+(defun ej/is-current-layout-ru ()
+  (interactive)
+  (equal (shell-command-to-string "xkblayout-state print %s") "ru"))
+(defun ej/switch-layout ()
+  (shell-command-to-string "xkblayout-state set +1"))

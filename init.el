@@ -21,7 +21,7 @@
 (load-el "elisp/07--dev.el")
 (load-el "elisp/08--modules.el")
 (load-el "elisp/09--functions.el")
-(load-el "elisp/10--org.el")
+(load-el "elisp/100--org.el")
 (when priv-conf-file (load-file priv-conf-file))
 
 ;;;; ----- GC

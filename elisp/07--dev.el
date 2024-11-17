@@ -199,6 +199,7 @@
 (defun ej/py-interactive-hook ()
   (interactive)
   (local-set-key (kbd "s-j") 'ej/python-interactive/body)
+  (local-set-key (kbd "C-M-<return>") 'ej/run-other-window)
   )
 (add-hook 'python-mode-hook 'ej/py-interactive-hook)
 
