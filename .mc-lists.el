@@ -38,6 +38,7 @@
         indent-for-tab-command
         kill-region
         kmacro-start-macro-or-insert-counter
+        markdown-end-of-line
         markdown-outdent-or-delete
         mc/vertical-align-with-space
         org-attach
@@ -51,6 +52,7 @@
         org-forward-sentence
         org-kill-line
         org-open-line
+        org-previous-visible-heading
         org-self-insert-command
         org-shifttab
         org-transpose-words

@@ -19,7 +19,7 @@
 (add-to-list 'auto-mode-alist '("\\..codespellrc" . conf-unix-mode))
 
 ;; for dabbrev-expand
-(setq dabbrev-abbrev-skip-leading-regexp "[='/]")
+(setq dabbrev-abbrev-skip-leading-regexp "[='/$]")
 
 (setq org-babel-python-command python-dir)
 (setq python-shell-interpreter python-dir)
@@ -27,6 +27,7 @@
 (defun ej/hook-python-vars ()
   (setq indent-tabs-mode nil)
   (setq python-indent 4)
+  (setq python-indent-def-block-scale 1)
   (setq tab-width 2))
 
 (add-hook 'python-mode-hook 'ej/hook-python-vars)
@@ -82,13 +83,22 @@
          (parsed-lines (--map (ej/parse-flake8-line it) lines))
          ) parsed-lines))
 
+(defun ej/goto-line-column (pos-x pos-y)
+  (goto-char (point-min))
+  (forward-line (1- pos-x))
+  (beginning-of-line)
+  (forward-char (1- pos-y))
+  )
+
 (defun ej/annotate-py-with-flake8 (&optional goto-first)
   (interactive)
   (save-buffer)
   (let* ((parsed-lines (ej/flake8-parsed-lines (buffer-file-name)))
          (chunks (--group-by (car it) parsed-lines))
          (pline-0 (car parsed-lines))
-         (pos-x (unless (= 0 (length pline-0)) (car pline-0))))
+         (pos-x (unless (= 0 (length pline-0)) (car pline-0)))
+         (pos-y (unless (= 0 (length pline-0)) (cadr pline-0)))
+         )
     (ej/remove-overlays)
     (if (not parsed-lines)
         (message "No style problems found")
@@ -100,7 +110,7 @@
            do (ej/inline-flake8-chunk chunk)))
         (message "goto: %s" pos-x)
         (when goto-first
-          (goto-line pos-x))))))
+          (ej/goto-line-column pos-x pos-y))))))
 
 (defun ej/flake8-warn-keys-for-cur-line ()
   (interactive)
@@ -142,6 +152,51 @@
    "import fire"
    ))
 
+(defun ej/get-full-py-module ()
+  (let* ((fpath (buffer-file-name))
+         (root-path (projectile-acquire-root))
+         (r-path (substring fpath (length root-path) -3))
+         (res (s-replace "/" "." r-path))
+         ) res))
+
+(defun ej/copy-full-py-module ()
+  (interactive)
+  (let* ((module-name (ej/get-full-py-module)))
+    (kill-new module-name)
+    (message "Copied: %s" module-name)))
+
+(defun ej/eval-line ()
+  (interactive)
+  (let* ((line (thing-at-point 'line)))
+    (end-of-line 1)
+    (forward-char 1)
+    (other-window 1)
+    (insert (s-trim line))
+    (comint-send-input)
+    (other-window -1)))
+
+(defun ej/add-python-snippet ()
+  (interactive)
+  (helm
+   :sources  (helm-build-sync-source "Add Python snippet"
+               :candidates ej/python-snippets
+               :action 'insert
+               :fuzzy-match t)
+   :buffer "*helm suggestion latex header*"))
+
+(defun ej/patch-f-string ()
+  (interactive)
+  (save-excursion
+    (backward-char 1)
+    (re-search-backward "['\"]")
+    (insert "f")))
+  
+(defun ej/highlight-sexp-at-point (color)
+  (interactive)
+  (let* ((sexp (sexp-at-point))
+         (pattern (format "\\_<%s\\_>" sexp)))
+    (highlight-regexp pattern color)))
+
 (pretty-hydra-define ej/python-interactive (:foreign-keys warn :exit t :quit-key "q")
 	(
    "Annotations"
@@ -152,6 +207,8 @@
     ("n" ej/noqa-fix "noqa-fix")
     ("N" (ej/noqa-fix "intended") "noqa-fix-intended")
     ("v" vc-annotate "vc-annotate")
+    ("Y" (ej/highlight-sexp-at-point 'hi-yellow) "highlight yellow")
+    ("R" (ej/highlight-sexp-at-point 'hi-pink) "highlight red")
 		)
 	 
 	 "Code actions"
@@ -161,20 +218,17 @@
 		(";" ej/comment-and-next-line "comment and next line" :exit nil)
 		("TAB" ej/indent-and-next-line "Indent and next line" :exit nil)
 		("<C-tab>" ej/indent-until-end-of-sexp "Indent until end of sexp")
-    ("i" (helm
-        :sources  (helm-build-sync-source "Add Python snippet"
-                    :candidates ej/python-snippets
-                    :action 'insert
-                    :fuzzy-match t)
-        :buffer "*helm suggestion latex header*") "completions")
+    ("i" ej/add-python-snippet "completions")
 		("w" ej/copy-sexp-at-point "copy last sexp")
     ("s-j" ej/run-other-window "run other window")
+    ("'" ej/patch-f-string "string -> f-string")
 		)
 	 
 	 "Templates"
 	 (
+    ("c" (insert "from collections import defaultdict, Counter") "import defaultdict and Counter")
     ("p" (insert "breakpoint()") "breakpoint")
-    ("a" (insert "from pathlib import Path") "from pathlib import Path")
+    ("P" (insert "from pathlib import Path") "from pathlib import Path")
     ("m" (insert "def main():\n    pass\n\nif __name__ == '__main__':\n    main()") "if __name__ == '__main__'")
     ("M" (insert "async def main():\n    pass\n\nif __name__ == '__main__':\n    asyncio.run(main())") "if __name__ == '__main__' (async)")
     ("E" (insert "ensure_ascii=False, indent=2)") "ensure_ascii=False, indent=2")
@@ -183,15 +237,9 @@
 	 "Etc"
 	 (
     ("d" ej/remove-overlays "remove overlays")
+    ("/" ej/eval-line "eval line" :exit nil)
+    ("y" ej/copy-full-py-module "copy-full-py-module")
     ("<ESC>" nil "exit")
-    ("/" (let* ((line (thing-at-point 'line)))
-           (end-of-line 1)
-           (forward-char 1)
-           (other-window 1)
-           (insert (s-trim line))
-           (comint-send-input)
-           (other-window -1)) "eval line" :exit nil)
-                
 		)
 	 )
   )
@@ -199,7 +247,9 @@
 (defun ej/py-interactive-hook ()
   (interactive)
   (local-set-key (kbd "s-j") 'ej/python-interactive/body)
-  (local-set-key (kbd "C-M-<return>") 'ej/run-other-window)
+  (local-set-key (kbd "<C-M-return>") 'ej/run-other-window)
+  (local-set-key (kbd "M-s-g") 'ej/jump-go)
+  (local-set-key (kbd "M-s-b") 'dumb-jump-back)
   )
 (add-hook 'python-mode-hook 'ej/py-interactive-hook)
 
@@ -745,5 +795,6 @@
 
 (use-package markdown-mode
   :config
+  (setq markdown-fontify-code-blocks-natively t)
   :bind ("C-x w" . ej/wrap-src-interactive))
 

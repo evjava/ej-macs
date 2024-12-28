@@ -223,6 +223,7 @@
   :commands (telega)
   :bind-keymap ("C-c t" . telega-prefix-map)
   :custom
+  (telega-use-docker t)
   (telega-chat-input-markups '("markdown2" nil "markdown1")))
 
 (use-package telega-mnz
@@ -301,4 +302,6 @@
       :requires python
       :load-path iove-dir
       :config (ej/configure-iove))
-  (message "Can not load `iove`"))
+  (message "Can not load `iove`")
+  )
+(global-set-key (kbd "C-M-S-<return>") 'iove/annotate)

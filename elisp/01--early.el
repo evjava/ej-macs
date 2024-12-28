@@ -63,11 +63,12 @@
 (setq use-short-answers t) ; ask emacs be laconic and brief
 (remove-hook 'kill-buffer-query-functions 'server-kill-buffer-query-function)
 (add-hook 'comint-output-filter-functions 'comint-watch-for-password-prompt)
-
-(put 'narrow-to-region 'disabled nil)
-
 ;; (setq interprogram-paste-function 'x-selection-value)
 (defalias 'x-cut-buffer-or-selection-value 'x-selection-value)
+(setq x-select-enable-clipboard-manager nil)
+(put 'narrow-to-region 'disabled nil)
+
+
 
 ;;;; ----- early functions
 (defun load-ignore-error (file)
@@ -418,7 +419,7 @@
       (goto-char (point-max))
       (while (ej/is-inside-program)
         (comint-send-eof)
-        (sit-for 0.2))
+        (sit-for 0.8))
       (if (not is-py) (comint-previous-input 1)
         (while (ej/is-not-interesting-command)
           (comint-previous-input 1)))
@@ -431,7 +432,7 @@
 (global-set-key (kbd "s-.") (lambda () (interactive) (shell "*shell*<4>")))
 (global-set-key (kbd "s-/") (lambda () (interactive) (shell "*shell*<5>")))
 (global-set-key (kbd "M-s-n") 'ej/switch-to-prev-shell)
-(global-set-key (kbd "C-M-<return>") 'ej/run-other-window)
+(global-set-key (kbd "<C-M-return>") 'ej/run-other-window)
 (defun ej/bash-history ()
   (interactive)
   (helm
@@ -454,5 +455,4 @@
     ad-do-it))
 
 ;;; shell: completion
-(use-package pcmpl-args
- :bind (:map shell-mode-map ("<tab>" . pcomplete)))
+(define-key shell-mode-map (kbd "<tab>") #'comint-dynamic-complete-filename)

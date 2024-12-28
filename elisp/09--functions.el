@@ -736,6 +736,7 @@ same directory as the org-buffer and insert a link to this file."
 (defhydra ej/hydra-buffers-windows (:foreign-keys warn :columns 1)
   " Hydra navigation stuff "
   ("!" ej/reopen "reopen" :exit t)
+  ("@" fname "copy file name" :exit t)
   ("2" ej/split-show-dired "split and dired" :exit t)
   ("3" ej/src-code-with-asmtools "open code block with asmtools" :exit t)
   ("e" split-window-horizontally "split horizontally")
@@ -749,6 +750,8 @@ same directory as the org-buffer and insert a link to this file."
   ("m" (switch-to-buffer "*Messages*") "*Messages*" :exit t)
   ("p" (switch-to-buffer "*Packages*") "*Packages*" :exit t)
   ("P" (switch-to-buffer "*Python*") "*Python*" :exit t)
+  ("f" fname "Copy path to file of buffer" :exit t)
+  ("c" ej/copy-all "Copy buffer" :exit t)
   ("<f1>" windresize "windresize" :exit t)
   ("<f8>" ej/dired-in-other-window "Dired in other window" :exit t)
   ("<ESC>" nil "quit")
@@ -879,12 +882,21 @@ same directory as the org-buffer and insert a link to this file."
     (insert arg)
     (goto-char (point-max))
     (ffap-guesser)))
+(defun ej/file-exists-p (fp)
+  (and (not (null fp))
+       (file-exists-p fp)))
 
 (defun find-file-at-point-with-line (&optional filename)
   "Opens file at point and moves point to line specified next to file name."
   (interactive)
-  (let* ((filename (or filename (if current-prefix-arg (ffap-prompter) (ffap-guesser))))
-         (filename-fix (ej/ffap-guesser (substring (s-replace "." "/" (car (s-split ":" (ffap-guesser)))) 1)))
+  (let* ((filename-guess (ffap-guesser))
+         (filename (or filename (if current-prefix-arg (ffap-prompter) filename-guess)))
+;;         (filename (when (and (not (null filename)) (s-contains? ":" filename))
+;;                     (car (s-split ":" filename))))
+         (filename-fix (when filename-guess
+                         (or
+                          (ej/ffap-guesser (car (s-split ":" filename-guess)))
+                          (ej/ffap-guesser (s-replace "." "/" (car (s-split ":" filename-guess)))))))
          (line-number
           (and (or (looking-at ".* line \\(\[0-9\]+\\)")
                    (looking-at "[^:]*[\\(:]\\(\[0-9\]+\\)"))
@@ -901,8 +913,8 @@ same directory as the org-buffer and insert a link to this file."
     (cond ((ffap-url-p filename)
            (let (current-prefix-arg)
              (funcall ffap-url-fetcher filename)))
-          ((file-exists-p filename) (ej/open-go filename line-number column-number token))
-          ((file-exists-p filename-fix) (ej/open-go filename-fix line-number column-number token))
+          ((ej/file-exists-p filename) (ej/open-go filename line-number column-number token))
+          ((ej/file-exists-p filename-fix) (ej/open-go filename-fix line-number column-number token))
           ((and ffap-pass-wildcards-to-dired
                 ffap-dired-wildcards
                 (string-match ffap-dired-wildcards filename))
@@ -913,8 +925,8 @@ same directory as the org-buffer and insert a link to this file."
                 ;; Check if it's find-file that supports wildcards arg
                 (memq ffap-file-finder '(find-file find-alternate-file)))
            (funcall ffap-file-finder (expand-file-name filename) t))
-          ((or (not ffap-newfile-prompt)
-               (file-exists-p filename)
+          ((or (not find-file-not-found-functions)
+               (ej/file-exists-p filename)
                (y-or-n-p "File does not exist, create buffer? "))
            (funcall ffap-file-finder
                     ;; expand-file-name fixes "~/~/.emacs" bug sent by CHUCKR.
@@ -946,3 +958,11 @@ same directory as the org-buffer and insert a link to this file."
   (equal (shell-command-to-string "xkblayout-state print %s") "ru"))
 (defun ej/switch-layout ()
   (shell-command-to-string "xkblayout-state set +1"))
+
+(defun is-integer (str)
+  (condition-case nil
+      (progn
+        (cl-parse-integer str)
+        t)
+    (error nil)))
+
