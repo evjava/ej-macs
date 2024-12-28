@@ -966,3 +966,28 @@ same directory as the org-buffer and insert a link to this file."
         t)
     (error nil)))
 
+(defun ej/remove-match (string pattern)
+  (if (string-match pattern string)
+      (replace-match "" t t string)
+    string))
+
+(defun ej/trim (string chars)
+  (let* ((rtrim (ej/remove-match string (format "[ %s]$" chars)))
+         (res (ej/remove-match rtrim (format "^[ %s]" chars)))
+         ) res))
+
+(defun ej/find-match-lines (pattern &optional max-count)
+  (save-excursion
+    (cl-loop
+     with cnt = (if (null max-count) 10 max-count)
+     with matches = '()
+     while (and
+            (re-search-backward pattern nil t)
+            (< (length matches) cnt))
+     for ln = (thing-at-point 'line)
+     for match = (substring-no-properties (s-trim ln))
+     do (add-to-list 'matches match)
+     finally return (reverse matches))))
+                       
+(defun ej/find-buffer (needle)
+  (--first (s-contains? needle (format "%s" it)) (buffer-list)))

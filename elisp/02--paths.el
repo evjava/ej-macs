@@ -27,6 +27,7 @@
 (setq last-theme-file (ej/emacs-local-path "last-theme.cfg"))
 (setq emms-dir (ej/emacs-local-path "emms"))
 (setq projectile-cache-file (ej/emacs-local-path "projectile.cache"))
+(add-to-list 'projectile-globally-ignored-directories "^postgres-data$")
 (setq bookmark-default-file (ej/emacs-local-path "emacs_bookmarks"))
 (setq recentf-save-file (ej/emacs-local-path "recentf"))
 (setq org-latex-preview-dir (ej/emacs-local-path "ltximg"))
