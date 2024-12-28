@@ -65,6 +65,7 @@
   :config
   (setq projectile-enable-caching t)
   (setq projectile-indexing-method 'native)
+  (add-to-list 'projectile-globally-ignored-directories "^postgres-data$")
   (projectile-mode +1))
 
 (use-package dired-subtree
