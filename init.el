@@ -7,7 +7,8 @@
 (add-to-list 'load-path (locate-user-emacs-file "elpa"))
 (add-to-list 'load-path (locate-user-emacs-file "non-elpa"))
 (let ((default-directory (locate-user-emacs-file "elpa")))
-  (normal-top-level-add-subdirs-to-load-path))
+  (when (file-exists-p default-directory)
+    (normal-top-level-add-subdirs-to-load-path)))
 
 ;;;; ----- parts
 (defun load-el (rel-path)

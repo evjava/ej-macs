@@ -1,3 +1,7 @@
+(defun ej/prog-mode-hook ()
+  (local-set-key (kbd "<C-M-return>") 'ej/run-other-window))
+(add-hook 'prog-mode-hook 'ej/prog-mode-hook)
+
 (use-package diff-hl
   :config
   (add-hook 'org-mode-hook 'diff-hl-mode)
@@ -197,6 +201,38 @@
          (pattern (format "\\_<%s\\_>" sexp)))
     (highlight-regexp pattern color)))
 
+(defun ej/collapse-to-line (content)
+  "Collapse multi-line CONTENT into a single line while preserving proper spacing."
+  (let* ((replaces
+          '(("[ \t]*\n[ \t]*" " ")
+            ("[ \t]*([ \t]*" "(")
+            ("[ \t]*,[ \t]*" ", ")
+            ("[ \t]*)[ \t]*" ")")
+            (",)" ")")))
+         (res (--reduce-from
+               (replace-regexp-in-string (car it) (cadr it) acc)
+               content
+               replaces))
+         ) res))
+(setq content "    return A(\n        x=x,\n        y=y,\n    )")
+(setq output-expected "    return A(x=x, y=y)")
+(cl-assert (equal (ej/collapse-to-line content) output-expected))
+
+(defun ej/get-start-of-line-pos (point) (interactive) (save-excursion (goto-char point) (beginning-of-line 1) (point)))
+(defun ej/end-of-line-pos (point) (interactive) (save-excursion (goto-char point) (end-of-line 1) (point)))
+
+(defun ej/collapse-to-line-interactive ()
+  (interactive)
+  (let* ((p1 (1- (point)))
+         (a (ej/get-start-of-line-pos (min (mark) p1)))
+         (b (1+ (ej/end-of-line-pos (max (mark) p1))))
+         (_ (kill-region a b))
+         (content (current-kill 0))
+         (content-fix (ej/collapse-to-line content))
+         )
+    (insert content-fix)
+    (insert "\n")))
+
 (pretty-hydra-define ej/python-interactive (:foreign-keys warn :exit t :quit-key "q")
 	(
    "Annotations"
@@ -222,6 +258,7 @@
 		("w" ej/copy-sexp-at-point "copy last sexp")
     ("s-j" ej/run-other-window "run other window")
     ("'" ej/patch-f-string "string -> f-string")
+    ("<" ej/collapse-to-line-interactive "collapse")
 		)
 	 
 	 "Templates"

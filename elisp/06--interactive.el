@@ -57,12 +57,13 @@
            (res (buffer-substring-no-properties start end))
            ) res)))
            
+
+
 (defun ej/parse-commands-from-history (cmd-output)
   (let* ((lines (s-split "\n" cmd-output))
-         (pairs (--map (s-split-up-to " " it 1) lines))
          (commands (cl-loop
                     for ln in lines
-                    for ln-parts = (s-split-up-to " " ln 1)
+                    for ln-parts = (s-split-up-to " " (s-trim ln) 1)
                     for (cnt . cmd) = ln-parts
                     if (is-integer cnt)
                     collect (s-trim (car cmd))))

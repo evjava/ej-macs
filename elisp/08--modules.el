@@ -35,8 +35,11 @@
   (doom-modeline-mode 1)
 )
 (use-package nerd-icons
-  :if (display-graphic-p))
-; (doom-modeline-mode -1)
+  :if (display-graphic-p)
+  :config
+  (let* ((nerd-fonts-path (expand-file-name "~/.local/share/fonts/NFM.ttf")))
+    (unless (file-exists-p nerd-fonts-path)
+      (nerd-icons-install-fonts 'yes))))
 
 (use-package multiple-cursors
   :defer t
