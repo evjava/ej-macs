@@ -67,7 +67,8 @@
               ("C-c p" . 'projectile-command-map))
   :config
   (setq projectile-enable-caching t)
-  (setq projectile-indexing-method 'native)
+  (setq projectile-indexing-method 'hybrid)
+  (setq projectile-git-submodule-command "true")
   (add-to-list 'projectile-globally-ignored-directories "^postgres-data$")
   (projectile-mode +1))
 
@@ -79,14 +80,14 @@
 
 (use-package yafolding
   :defer t
-  :bind
-  ("<C-S-return>" . nil)
-  ("<C-M-return>" . nil)
-  ("<C-return>" . nil)
-  ("C-c <C-M-return>" . 'yafolding-toggle-all)
-  ("C-c <C-S-return>" . 'yafolding-hide-parent-element)
-
-  ("C-c <C-return>" . 'yafolding-toggle-element)
+  :config
+  (setq
+   yafolding-mode-map
+   (let ((map (make-sparse-keymap)))
+     (define-key map (kbd "C-c <C-S-return>") #'yafolding-hide-parent-element)
+     (define-key map (kbd "C-c <C-M-return>") #'yafolding-toggle-all)
+     (define-key map (kbd "C-c <C-return>") #'yafolding-toggle-element)
+     map))
   )
 
 (use-package recentf
@@ -223,7 +224,6 @@
 
 (use-package telega
   :defer t
-  :load-path telega-path
   :commands (telega)
   :bind-keymap ("C-c t" . telega-prefix-map)
   :custom

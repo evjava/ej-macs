@@ -159,7 +159,7 @@
 
 (defun nav-nav-sort-by-access ()
   (interactive)
-  (let* ((paths (nav-nav-paths nav-nav-file)Б)
+  (let* ((paths (nav-nav-paths nav-nav-file))
          (commands-sorted (-sort (-on #'string-lessp #'caddr) paths))
          (commands-sorted-str (--map (format "%s" it) commands-sorted)))
     (helm :sources (helm-build-sync-source "nav-nav (sorted by access):"

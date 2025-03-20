@@ -104,8 +104,13 @@
     (kill-region (mark) (point))
     (insert block)))
 
+(use-package language-detection)
+
 (defun ej/detect-lang (snippet)
-  (let* ((detected-lang (symbol-name (language-detection-string snippet))))
+  (let* ((detected-lang
+          (condition-case nil
+              (symbol-name (language-detection-string snippet))
+            (error nil))))
     (pcase detected-lang
       ("awk" "elisp")
       ("lisp" "elisp")

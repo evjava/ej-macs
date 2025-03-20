@@ -273,6 +273,7 @@
     ("s-j" ej/run-other-window "run other window")
     ("'" ej/patch-f-string "string -> f-string")
     ("<" ej/collapse-to-line-interactive "collapse")
+    ("a" ej/auto-fix-this-file "auto-fix this file")
 		)
 	 
 	 "Templates"
