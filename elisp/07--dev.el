@@ -154,6 +154,7 @@
    "raise AttributeError("
    "if __name__ == '__main__':\n\tfire.Fire("
    "import fire"
+   "logger = logger.getLogger(__name__)"
    ))
 
 (defun ej/get-full-py-module ()
@@ -232,6 +233,19 @@
          )
     (insert content-fix)
     (insert "\n")))
+
+(defun ej/auto-fix-this-file ()
+  (interactive)
+  (let* ((fpath buffer-file-name)
+         (pre-commands (list
+                        "black"
+                        ;; https://lyz-code.github.io/autoimport/
+                        "autoimport"))
+         (commands (--map (format "%s %s" it fpath) pre-commands)))
+    (cl-loop
+     for cmd in commands
+     do (shell-command-to-string cmd))
+    (ej/reopen)))
 
 (pretty-hydra-define ej/python-interactive (:foreign-keys warn :exit t :quit-key "q")
 	(

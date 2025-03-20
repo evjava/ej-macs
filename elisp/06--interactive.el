@@ -1,6 +1,7 @@
 ;; shell: interactive
 (defun insert-send (text)
   (interactive)
+  (goto-char (point-max))
   (insert text)
   (comint-send-input))
 
@@ -94,22 +95,47 @@
          )
     (call-interactively (eval hydra))))
 
-(defhydra ej/shell-helper (:columns 1 :foreign-keys warn :exit t)
-  "shell helper"
-  ("p" (insert-send "import pandas as pd") "import pandas as pd")
-  ("P" (insert-send "from pathlib import Path") "from pathlib import Path")
-  ("c" (insert-send "from collections import Counter, defaultdict") "Counter & defaultdict")
-  ("l" (insert-send "alias l=\"ls -al\"") "alias l=\"ls -al\"")
-  ("s" (insert "chmod +x *.sh") "chmod +x *.sh")
-  ("g" (insert (completing-read "Choose" (ej/modified-git-files))) "choose modified git file")
-  ("L" (insert-send "git branch --list --sort=-committerdate") "insert `git branch --list`")
-  ("!" (insert-send "git checkout -") "git co -")
-  ("+" ej/start-new-commit "start new commit")
-  ("b" (ej/switch-branch) "switch branch")
-  ("j" (insert "python -m json.tool --no-ensure-ascii") "python prettify via json.tool")
-  ("s-i" (ej/suggest-context-commands) "suggest commands from context")
-  ("?" elpy-rgrep-symbol "find-symbol")
-  )
+(defun ej/convert-files-to-loop ()
+  (interactive)
+  (kill-line 0)
+  (insert "for fp in $(")
+  (insert (last-killed))
+  (insert "); do ")
+  (save-excursion
+    (insert "; done")))
+
+(pretty-hydra-define ej/shell-helper (:foreign-keys warn :exit t :quit-key "q")
+  (
+   "Tools"
+   (
+    ("l" (insert-send "alias l=\"ls -al\"") "alias l=\"ls -al\"")
+    ("s" (insert "chmod +x *.sh") "chmod +x *.sh")
+    ("j" (insert "python -m json.tool --no-ensure-ascii") "python prettify via json.tool")
+    ("s-i" (ej/suggest-context-commands) "suggest commands from context")
+    ("f" (ej/convert-files-to-loop) "convert files output to loop")
+    ("?" elpy-rgrep-symbol "find-symbol")
+    ("!" (insert-send (format "cd %s" (thing-at-point 'existing-filename))) "cd to dir at point")
+    ("<" (insert-send "cd -") "cd -")
+    ("/" (insert "fd -e py -x rg -H ") "fd -e py -x rg -H")
+    )
+
+   "Git"
+   (
+    ("m" (insert (completing-read "Choose" (ej/modified-git-files))) "choose modified git file")
+    ("L" (insert-send "git branch --list --sort=-committerdate") "insert `git branch --list`")
+    ("{" (insert-send "git checkout -") "git co -")
+    ("+" ej/start-new-commit "start new commit")
+    ("b" (ej/switch-branch) "switch branch")
+    ("r" (insert-send (format "cd %s" (shell-command-to-string "git root"))) "cd git root")
+    )
+   
+   "Python"
+   (
+    ("p" (insert-send "import pandas as pd") "import pandas as pd")
+    ("P" (insert-send "from pathlib import Path") "from pathlib import Path")
+    ("c" (insert-send "from collections import Counter, defaultdict") "Counter & defaultdict")
+    )
+   ))
 
 (defun ej/shell-hook ()
   (interactive)

@@ -56,7 +56,7 @@
   (let* ((CHAR-NUMBER (string-to-char " "))
          (CHAR-MULT 2)
          (current-line (buffer-substring-no-properties (line-beginning-position) (point)))
-         (has-box (or (cl-search "[X]" current-line) (cl-search "[ ]" current-line)))
+         (has-box (cl-search "[" current-line))
          (beg-of-line (line-beginning-position))
          (indent-level (- (save-excursion (back-to-indentation) (point)) beg-of-line)))
     (newline)

@@ -276,6 +276,7 @@
 (setq dired-listing-switches "-aD")
 (setq dired-omit-files (concat dired-omit-files "\\|\\.i$"))
 (setq tramp-default-method "ssh")
+(setq dired-guess-shell-alist-user '(("\\.zip\\'" "unzipp")))
 
 (defun ej/hook-dired-dd-loader ()
   (load "dired-x")
