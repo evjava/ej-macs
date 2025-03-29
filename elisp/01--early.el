@@ -41,13 +41,14 @@
 (put 'upcase-region 'disabled nil)
 (put 'narrow-to-region 'disabled nil)
 
-(setq 
- frame-title-format 
- '((:eval 
-    (concat 
-     (if (buffer-file-name) (abbreviate-file-name (buffer-file-name)) "%b")
-     " - emacs@"
-     (system-name)))))
+(defun ej/user-host ()
+  (let* ((user (s-trim (shell-command-to-string "echo $USER")))
+         (host-pretty (s-trim (shell-command-to-string "hostnamectl --pretty")))
+         (host (if (= 0 (length host-pretty)) (system-name) host-pretty))
+         (res (format "%s@%s" user host))
+         ) res))
+(setq *user-host* (ej/user-host))
+(setq frame-title-format '((:eval (concat *user-host* " " "%b"))))
 
 (defconst debian-emacs-flavor 'emacs26
   "A symbol representing the particular debian flavor of emacs running.
@@ -128,7 +129,8 @@
 (global-set-key (kbd "<f5>") 'calc-grab-region)
 (global-set-key (kbd "<f6>") 'package-install)
 (global-set-key (kbd "<C-f6>") 'list-packages)
-(global-set-key (kbd "<f8>") 'kill-this-buffer)
+;; workaround for emacs-30
+(global-set-key (kbd "<f8>") '(lambda () (interactive) (kill-this-buffer)))
 (global-set-key (kbd "<f9>") 'sort-lines)
 (global-set-key (kbd "M-j") 'dabbrev-expand)
 
@@ -457,3 +459,14 @@
 
 ;;; shell: completion
 (define-key shell-mode-map (kbd "<tab>") #'comint-dynamic-complete-filename)
+
+;;; shell: killing
+(defun ej/kill-shells ()
+  (interactive)
+  (let* ((kill-buffer-query-functions nil))
+    (unless (equal major-mode 'shell-mode)
+      (ej/switch-to-prev-shell))
+    (while (equal major-mode 'shell-mode)
+      (when (yes-or-no-p "Kill?")
+        (kill-this-buffer))
+      (ej/switch-to-prev-shell))))

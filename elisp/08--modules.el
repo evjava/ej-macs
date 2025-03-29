@@ -121,7 +121,11 @@
 
 (use-package google-translate
   :ensure t
-  :bind (("s-f" . ej/translate-yank))
+  :bind
+  (
+   ("s-f" . ej/translate-yank)
+   ("M-s-f" . ej/translate-word)
+   )
   :config
   (require 'google-translate-default-ui)
   (setq google-translate-backend-method 'curl)
@@ -139,13 +143,20 @@
   (setq google-translate-default-source-language "en")
   (setq google-translate-default-target-language "ru")
   )
-(require 'google-translate)
 
 (defun ej/translate-yank (start end)
   " Translates region. en>ru if a..z found, else ru>en "
   (interactive "r")
-  (let* ((text (buffer-substring-no-properties start end))
-         (source (if (s-match "[a-zA-Z]" text) "en" "ru"))
+  (let* ((text (buffer-substring-no-properties start end)))
+    (ej/translate-text text)))
+
+(defun ej/translate-word ()
+  (interactive)
+  (let* ((text (thing-at-point 'word)))
+    (ej/translate-text text)))
+
+(defun ej/translate-text (text)
+  (let* ((source (if (s-match "[a-zA-Z]" text) "en" "ru"))
          (target (if (equal "en" source) "ru" "en")))
     (google-translate-translate source target text)
     (other-window 1)))

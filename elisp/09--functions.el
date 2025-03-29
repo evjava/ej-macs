@@ -246,7 +246,7 @@ C-u 0 M-x enumerate-rectangle"
   (pcase arg-type
    (:pos (goto-char arg-val))
    (:line (goto-line arg-val))
-   (:str (search-forward arg-val)))
+   (:str (progn (goto-char 0) (search-forward arg-val))))
   (end-of-line))
 
 (defalias 'g 'ej/find-file-goto-line)

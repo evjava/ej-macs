@@ -236,6 +236,7 @@
 
 (defun ej/auto-fix-this-file ()
   (interactive)
+  (save-buffer)
   (let* ((fpath buffer-file-name)
          (pre-commands (list
                         "black"
@@ -265,6 +266,7 @@
 	 (("g" ej/jump-go "dumb-jump-go wrapper")
 		("b" dumb-jump-back "dumb-jump-back")
     ("?" elpy-rgrep-symbol "find-symbol")
+    ("7" ej/find-class-symbol "find class symbol")
 		(";" ej/comment-and-next-line "comment and next line" :exit nil)
 		("TAB" ej/indent-and-next-line "Indent and next line" :exit nil)
 		("<C-tab>" ej/indent-until-end-of-sexp "Indent until end of sexp")
