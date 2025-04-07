@@ -117,7 +117,8 @@
   (let* ((callback (alist-get arg nav-nav-actions-map nav-nav-default-action)))
     (funcall callback path)
     (if switch-layout (nav-nav-next-layout))
-    (nav-nav-update-entry-by-key key #'nav-nav-update-access-time)))
+    ))
+;;    (nav-nav-update-entry-by-key key #'nav-nav-update-access-time)))
 
 (defun nav-nav-update-access-time (entry)
   (let* ((ctime (current-time))
