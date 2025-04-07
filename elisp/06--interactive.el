@@ -137,11 +137,12 @@
     )
    ))
 
-(defun ej/cd-dir-from-stdout ()
-  (interactive)
+(defun ej/cd-dir-from-stdout (firstp)
   (let* ((last-fpath
           (save-excursion
-            (forward-line -3)
+            (if (not firstp) (forward-line -3)
+              (comint-previous-prompt 1)
+              (forward-line 1))
             (thing-at-point 'existing-filename)))
          (last-dir
            (if (file-directory-p last-fpath)
@@ -150,10 +151,15 @@
     (insert (format "cd %s" last-dir))
     (comint-send-input)))
 
+(defun ej/cd-dir-from-stdout-first () (interactive) (ej/cd-dir-from-stdout t))
+(defun ej/cd-dir-from-stdout-last () (interactive) (ej/cd-dir-from-stdout nil))
+
 (defun ej/shell-hook ()
   (interactive)
   (local-set-key (kbd "C-c s-r") 'rename-shell)
   (local-set-key (kbd "s-j") 'ej/shell-helper/body)
   (local-set-key (kbd "C-s-j") 'ej/cd-dir-from-stdout)
+  (local-set-key (kbd "C-s-j") 'ej/cd-dir-from-stdout-first)
+  (local-set-key (kbd "M-s-j") 'ej/cd-dir-from-stdout-last)
   )
 (add-hook 'shell-mode-hook 'ej/shell-hook)

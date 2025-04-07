@@ -248,6 +248,26 @@
      do (shell-command-to-string cmd))
     (ej/reopen)))
 
+(defun ej/find-class-symbol ()
+  (interactive)
+  (let* ((symbol (thing-at-point 'word))
+         (pattern (format "class %s" symbol))
+         (dir "/home/tagin/1/repo/agi-med-llm")
+         (cmd (format "rg --type-add 'pyy:*.py' -t pyy '%s' %s --glob '!sci'" pattern dir))
+         (output (s-trim (shell-command-to-string cmd)))
+         ;; todo fix: if many found, just open projectile-ripgrep
+         (output-parts (s-split ":" output))
+         (fpath (car output-parts)))
+    (g fpath :str pattern)))
+
+;; (projectile-project-root ))
+;;     (projectile-ripgrep pattern)
+;;     (other-window 1)
+;;     (sit-for 0.4)
+;;     (search-forward pattern)
+;;     (compile-goto-error)
+;;     ))
+
 (pretty-hydra-define ej/python-interactive (:foreign-keys warn :exit t :quit-key "q")
 	(
    "Annotations"
@@ -304,6 +324,7 @@
   (local-set-key (kbd "<C-M-return>") 'ej/run-other-window)
   (local-set-key (kbd "M-s-g") 'ej/jump-go)
   (local-set-key (kbd "M-s-b") 'dumb-jump-back)
+  (local-set-key (kbd "C-s-p") 'ej/patch-f-string)
   )
 (add-hook 'python-mode-hook 'ej/py-interactive-hook)
 

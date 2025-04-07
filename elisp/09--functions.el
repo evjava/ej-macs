@@ -991,3 +991,28 @@ same directory as the org-buffer and insert a link to this file."
                        
 (defun ej/find-buffer (needle)
   (--first (s-contains? needle (format "%s" it)) (buffer-list)))
+
+(defun ej/region-line-bounds ()
+  " deepseek "
+   (when (use-region-p)
+    (save-excursion
+      (let ((start (region-beginning))
+            (end (region-end)))
+        (goto-char start)
+        (list (line-number-at-pos)
+              (progn
+                (goto-char end)
+                (+ (line-number-at-pos) (if (bolp) -1 0))))))))
+
+(defun ej/git-browse ()
+  (interactive)
+  (let* ((path (buffer-file-name))
+         (true-path (file-truename path))
+         (root (s-trim (shell-command-to-string "git root")))
+         (rel-path (file-relative-name true-path root))
+         (region-line-bounds (ej/region-line-bounds))
+         (cmd-bounds (if (null region-line-bounds) ""
+                       (format "%d %d" (car region-line-bounds) (cadr region-line-bounds))))
+         (cmd (format "git browse origin %s %s" rel-path cmd-bounds))
+         )
+    (shell-command-to-string cmd)))
