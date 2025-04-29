@@ -200,6 +200,7 @@
   (local-set-key (kbd "<C-S-return>") 'ej/add-line-item-reverse)
   (local-set-key (kbd "C-x w") 'ej/wrap-src-interactive)
   (local-set-key (kbd "C-M-x") 'eval-defun)
+  (local-set-key (kbd "M-s-b") 'ej/boldify)
   )
 (add-hook 'org-mode-hook 'ej/org-hook)
 

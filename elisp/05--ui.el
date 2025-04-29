@@ -27,8 +27,9 @@
   )
 
 (defun ej/set-theme-dired-subtree ()
-  (let* ((color-code-start (if (eq *ej/current-theme* *ej/theme-dark*) 0 255))
-         (color-code-shift (if (eq *ej/current-theme* *ej/theme-dark*) 10 -10)))
+  (let* ((dark-p (eq *ej/current-theme* *ej/theme-dark*))
+         (color-code-start (if dark-p 0 255))
+         (color-code-shift (if dark-p 10 -10)))
     (cl-loop
      with cur-shift = color-code-start
      for ii from 1 to 6
@@ -53,8 +54,12 @@
     (ej/set-light-theme))
   (setq *ej/current-theme* theme)
   (ej/write-string-to-file (format "%s" theme) *ej/theme-location*)
+  (condition-case nil
+      (ej/set-theme-dired-subtree)
+    (error nil))
   (ej/sync-cache-dir)
 )
+
 (defun ej/swap-cache-dir ()
   " returns 'dark or 'light  "
   (let* ((imgs-dir (ej/emacs-local-path "ltximg"))

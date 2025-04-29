@@ -246,7 +246,16 @@
     (cl-loop
      for cmd in commands
      do (shell-command-to-string cmd))
-    (ej/reopen)))
+    ))
+
+
+;; (projectile-project-root ))
+;;     (projectile-ripgrep pattern)
+;;     (other-window 1)
+;;     (sit-for 0.4)
+;;     (search-forward pattern)
+;;     (compile-goto-error)
+;;     ))
 
 (defun ej/find-class-symbol ()
   (interactive)
@@ -286,7 +295,7 @@
 	 (("g" ej/jump-go "dumb-jump-go wrapper")
 		("b" dumb-jump-back "dumb-jump-back")
     ("?" elpy-rgrep-symbol "find-symbol")
-    ("7" ej/find-class-symbol "find class symbol")
+    ("7" (message "TODO implement") "todo implement find class symbol")
 		(";" ej/comment-and-next-line "comment and next line" :exit nil)
 		("TAB" ej/indent-and-next-line "Indent and next line" :exit nil)
 		("<C-tab>" ej/indent-until-end-of-sexp "Indent until end of sexp")

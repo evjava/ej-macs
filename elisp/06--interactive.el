@@ -86,10 +86,17 @@
     hydra))
   
 
+(defun ej/parse-push-commands (prev-output)
+  (when (s-contains? "has no upstream branch." prev-output)
+    (when (string-match "git push --set-upstream.*" prev-output)
+      (list (match-string-no-properties 0 prev-output)))))
+
 (defun ej/suggest-context-commands ()
   (interactive)
   (let* ((prev-output (ej/get-previous-cmd-output))
-         (commands (ej/parse-commands-from-history prev-output))
+         (commands (or
+                    (ej/parse-commands-from-history prev-output)
+                    (ej/parse-push-commands prev-output)))
          (commands-cut (seq-subseq commands 0 (min (length commands) ej/max-commands)))
          (hydra (ej/make-hydra-from-lines commands-cut))
          )
@@ -104,8 +111,17 @@
   (save-excursion
     (insert "; done")))
 
+
+
 (pretty-hydra-define ej/shell-helper (:foreign-keys warn :exit t :quit-key "q")
   (
+   "cd"
+   (
+    ("!" (insert-send (format "cd %s" (thing-at-point 'existing-filename))) "cd to dir at point")
+    ("<" (insert-send "cd -") "cd -")
+    ("r" (insert-send (format "cd %s" (shell-command-to-string "git root"))) "cd git root")
+    )
+
    "Tools"
    (
     ("l" (insert-send "alias l=\"ls -al\"") "alias l=\"ls -al\"")
@@ -114,8 +130,6 @@
     ("s-i" (ej/suggest-context-commands) "suggest commands from context")
     ("f" (ej/convert-files-to-loop) "convert files output to loop")
     ("?" elpy-rgrep-symbol "find-symbol")
-    ("!" (insert-send (format "cd %s" (thing-at-point 'existing-filename))) "cd to dir at point")
-    ("<" (insert-send "cd -") "cd -")
     ("/" (insert "fd -e py -x rg -H ") "fd -e py -x rg -H")
     )
 
@@ -126,7 +140,6 @@
     ("{" (insert-send "git checkout -") "git co -")
     ("+" ej/start-new-commit "start new commit")
     ("b" (ej/switch-branch) "switch branch")
-    ("r" (insert-send (format "cd %s" (shell-command-to-string "git root"))) "cd git root")
     )
    
    "Python"
@@ -143,6 +156,7 @@
             (if (not firstp) (forward-line -3)
               (comint-previous-prompt 1)
               (forward-line 1))
+            (end-of-line)
             (thing-at-point 'existing-filename)))
          (last-dir
            (if (file-directory-p last-fpath)
@@ -161,5 +175,23 @@
   (local-set-key (kbd "C-s-j") 'ej/cd-dir-from-stdout)
   (local-set-key (kbd "C-s-j") 'ej/cd-dir-from-stdout-first)
   (local-set-key (kbd "M-s-j") 'ej/cd-dir-from-stdout-last)
+  (local-set-key (kbd "s-<backspace>") '(lambda () (interactive) (insert-send "cd -")))
   )
 (add-hook 'shell-mode-hook 'ej/shell-hook)
+
+;; dired
+(defhydra ej/dired-interactive (:exit t :columns 1)
+  " Dired commands "
+  ("b" ej/dired-file-name-add-date "add date prefix")
+  ("t" ej/toggle-empty-dir-file "toggle empty dir <-> file")
+  )
+
+(defun ej/dired-hook ()
+  (interactive)
+  (local-set-key (kbd "r") 'ej/dired-interactive/body)
+  )
+(add-hook 'dired-mode-hook 'ej/dired-hook)
+
+;; dired: add-date
+;; (define-key dired-mode-map (kbd "b") #'ej/dired-file-name-add-date)
+

@@ -994,15 +994,14 @@ same directory as the org-buffer and insert a link to this file."
 
 (defun ej/region-line-bounds ()
   " deepseek "
-   (when (use-region-p)
-    (save-excursion
-      (let ((start (region-beginning))
-            (end (region-end)))
-        (goto-char start)
-        (list (line-number-at-pos)
-              (progn
-                (goto-char end)
-                (+ (line-number-at-pos) (if (bolp) -1 0))))))))
+  (save-excursion
+    (let ((start (region-beginning))
+          (end (region-end)))
+      (goto-char start)
+      (list (line-number-at-pos)
+            (progn
+              (goto-char end)
+              (+ (line-number-at-pos) (if (bolp) -1 0)))))))
 
 (defun ej/git-browse ()
   (interactive)
@@ -1016,3 +1015,51 @@ same directory as the org-buffer and insert a link to this file."
          (cmd (format "git browse origin %s %s" rel-path cmd-bounds))
          )
     (shell-command-to-string cmd)))
+
+(defun ej/boldify ()
+  (interactive)
+  (let* ((sexp (thing-at-point 'sexp))
+         (len (length sexp))
+         )
+    (save-excursion
+      (backward-char len)
+      (insert "**"))
+    (insert "**")))
+
+;; dired
+(defun ej/dired-file-name-add-date ()
+  " TODO fix: add query, add revert (maybe?), don't rename already renamed "
+  (interactive)
+  (let* ((full-name (dired-get-filename))
+         (path-name (file-name-directory full-name))
+         (short-name (file-name-nondirectory full-name))
+         (file-attrs (file-attributes full-name))
+         (dt (format-time-string "%Y-%m-%d" (nth 5 file-attrs)))
+         (upd-short-name (format "%s--%s" dt short-name))
+         (upd-full-name (s-concat path-name upd-short-name)))
+    (message "Renamed %s >> %s" short-name upd-short-name)
+    (rename-file full-name upd-full-name)
+    (revert-buffer)
+    (beginning-of-buffer)
+    (search-forward upd-short-name)))
+
+(defun ej/toggle-empty-dir-file ()
+  (interactive)
+  (let ((path (dired-get-filename)))
+    (if (f-file-p path)
+        (ej/convert-empty-file-to-directory path)
+      (ej/convert-empty-dir-to-file path))))
+
+(defun ej/convert-empty-file-to-directory (path)
+  " takes empty file at point and converts it to directory "
+  (if (not (and (f-file-p path) (= 0 (nth 7 (file-attributes path))))) (message "Is not empty: %s" path)
+    (delete-file path)
+    (make-directory path)
+    (revert-buffer)))
+
+(defun ej/convert-empty-dir-to-file (path)
+  " takes dir at point and converts it to empty file "
+  (if (not (and (file-directory-p path) (directory-empty-p path))) (message "Is not empty: %s" path)
+    (delete-directory path)
+    (write-region "" nil path t)
+    (revert-buffer)))

@@ -66,6 +66,7 @@
         slime-space
         split-window-horizontally
         test
+        text-scale-adjust
         transpose-words
         upcase-region
         wdired--self-insert

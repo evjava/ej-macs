@@ -336,24 +336,6 @@
 (global-set-key (kbd "<f10>") 'ej/open-in-external-app-dired)
 (global-set-key (kbd "S-<f10>") 'ej/open-in-external-app-at-point)
 
-;; dired: add-date
-(defun ej/dired-file-name-add-date ()
-  " TODO fix: add query, add revert (maybe?), don't rename already renamed "
-  (interactive)
-  (let* ((full-name (dired-get-filename))
-         (path-name (file-name-directory full-name))
-         (short-name (file-name-nondirectory full-name))
-         (file-attrs (file-attributes full-name))
-         (dt (format-time-string "%Y-%m-%d" (nth 5 file-attrs)))
-         (upd-short-name (format "%s--%s" dt short-name))
-         (upd-full-name (s-concat path-name upd-short-name)))
-    (message "Renamed %s >> %s" short-name upd-short-name)
-    (rename-file full-name upd-full-name)
-    (revert-buffer)
-    (beginning-of-buffer)
-    (search-forward upd-short-name)))
-(define-key dired-mode-map (kbd "b") #'ej/dired-file-name-add-date)
-
 ;;;; ----- files: hooks
 (defun ej/find-file-check-make-large-file-read-only-hook ()
   "If a file is over a given size, make the buffer read only."

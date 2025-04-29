@@ -121,12 +121,10 @@
 
 (use-package google-translate
   :ensure t
-  :bind
-  (
-   ("s-f" . ej/translate-yank)
-   ("M-s-f" . ej/translate-word)
-   )
   :config
+  ;; ':bind' doesn't load package when key pressed. IDK why...
+  (global-set-key (kbd "s-f") #'ej/translate-yank)
+  (global-set-key (kbd "M-s-f") #'ej/translate-word)
   (require 'google-translate-default-ui)
   (setq google-translate-backend-method 'curl)
   (defun google-translate--get-b-d1 ()
