@@ -346,11 +346,11 @@
       (fundamental-mode)
       )))
 (add-hook 'find-file-hook 'ej/find-file-check-make-large-file-read-only-hook)
-(defun ej/dired--find-file--no-djvu (proc ff-function file)
+(defun ej/advice--dired--find-file--no-djvu (proc ff-function file)
   (if (s-ends-with? ".djvu" file)
       (message "Don't open djvu-files from dired")
     (funcall proc ff-function file)))
-(advice-add 'dired--find-file :around #'ej/dired--find-file--no-djvu)
+(advice-add 'dired--find-file :around #'ej/advice--dired--find-file--no-djvu)
 
 ;;;; ----- shell
 ;;; shell: pager for stdout
