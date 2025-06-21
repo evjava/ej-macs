@@ -111,7 +111,35 @@
   (save-excursion
     (insert "; done")))
 
+(defun ej/get-prompt ()
+  (save-excursion
+    (let* ((p (point))
+           (_ (backward-char 1))
+           (_ (move-beginning-of-line 1))
+           (sub (buffer-substring-no-properties (point) p))
+           (res (s-trim sub))
+           ) res)))
 
+(defun ej/make-tramp-path (prompt)
+  (let* ((prompt-fix (string-trim-right prompt " [$]"))
+         (parts (s-split "[@:]" prompt-fix))
+         (user (elt parts 0))
+         (home (format "/home/%s" user))
+         (host (downcase (elt parts 1)))
+         (path (elt parts 2))
+         (path-fix (s-replace "~" home path))
+         (res (format "/ssh:%s:%s" host path-fix))
+         ) res))
+
+;; (equal (ej/make-tramp-path "user@HOST:~/some-path $") "/ssh:host:/home/user/some-path")
+
+
+(defun ej/start-tramp ()
+  (interactive)
+  (let* ((prompt (ej/get-prompt))
+         (tramp-path (ej/make-tramp-path prompt))
+         )
+    (find-file tramp-path)))
 
 (pretty-hydra-define ej/shell-helper (:foreign-keys warn :exit t :quit-key "q")
   (
@@ -131,6 +159,7 @@
     ("f" (ej/convert-files-to-loop) "convert files output to loop")
     ("?" elpy-rgrep-symbol "find-symbol")
     ("/" (insert "fd -e py -x rg -H ") "fd -e py -x rg -H")
+    ("t" (ej/start-tramp) "tramp")
     )
 
    "Git"
@@ -184,6 +213,7 @@
   " Dired commands "
   ("b" ej/dired-file-name-add-date "add date prefix")
   ("t" ej/toggle-empty-dir-file "toggle empty dir <-> file")
+  ("i" dired-insert-subdir "dired-insert-subdir")
   )
 
 (defun ej/dired-hook ()

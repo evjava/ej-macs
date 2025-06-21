@@ -30,3 +30,5 @@ org-roam.db
 elpy
 %backup%*
 emms
+projects
+aider-helm-read-string-history.el

@@ -886,13 +886,13 @@ same directory as the org-buffer and insert a link to this file."
   (and (not (null fp))
        (file-exists-p fp)))
 
-(defun ej/advice--ffap-url-p--fix-dockerfile (proc string)
+(defun ej/advice--ffap-url-p--fix-prefix (proc string)
   ;; i don't know, why (ffap-url-p "Dockerfile:34:COPY") -> "file:34:COPY"..
   (cond
    ((s-starts-with? "Dockerfile:" string) nil)
-   ((s-starts-with? "Makefile:" string) nil)
-   (t (funcall proc string))))
-(advice-add 'ffap-url-p :around #'ej/advice--ffap-url-p--fix-dockerfile)
+   ((s-starts-with? "Makefile:" string)   nil)
+   (t                                     (funcall proc string))))
+(advice-add 'ffap-url-p :around #'ej/advice--ffap-url-p--fix-prefix)
 
 (defun find-file-at-point-with-line (&optional filename)
   "Opens file at point and moves point to line specified next to file name."

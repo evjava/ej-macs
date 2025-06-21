@@ -882,3 +882,12 @@
   (setq markdown-fontify-code-blocks-natively t)
   :bind ("C-x w" . ej/wrap-src-interactive))
 
+(use-package protobuf-mode
+  ;; https://emacs.stackexchange.com/a/82664
+  :hook (protobuf-mode . init:protobuf-mode-hook)
+  :config
+  (defconst init:protobuf-style
+    '((c-basic-offset . 2)
+      (indent-tabs-mode . nil)))
+  (defun init:protobuf-mode-hook ()
+    (c-add-style "init-protobuf-style" init:protobuf-style t)))
