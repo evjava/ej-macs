@@ -256,6 +256,17 @@
 ;;     (compile-goto-error)
 ;;     ))
 
+(defun ej/get-prev-line-var-name ()
+  (save-excursion
+    (previous-line 1)
+    (back-to-indentation)
+    (substring-no-properties (thing-at-point 'sexp))))
+
+(defun ej/insert-debug-var ()
+  (interactive)
+  (let* ((var-name (ej/get-prev-line-var-name)))
+    (insert (format "debug(f\"{%s=}\")" var-name))))
+
 (pretty-hydra-define ej/python-interactive (:foreign-keys warn :exit t :quit-key "q")
 	(
    "Annotations"
@@ -294,6 +305,7 @@
     ("m" (insert "def main():\n    pass\n\nif __name__ == '__main__':\n    main()") "if __name__ == '__main__'")
     ("M" (insert "async def main():\n    pass\n\nif __name__ == '__main__':\n    asyncio.run(main())") "if __name__ == '__main__' (async)")
     ("E" (insert "ensure_ascii=False, indent=2)") "ensure_ascii=False, indent=2")
+    ("D" ej/insert-debug-var "insert debug(var)")
     )
 	 
 	 "Etc"
