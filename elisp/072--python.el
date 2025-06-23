@@ -260,7 +260,7 @@
   (save-excursion
     (previous-line 1)
     (back-to-indentation)
-    (substring-no-properties (thing-at-point 'sexp))))
+    (substring-no-properties (thing-at-point 'symbol))))
 
 (defun ej/insert-debug-var ()
   (interactive)
