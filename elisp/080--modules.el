@@ -41,17 +41,6 @@
     (unless (file-exists-p nerd-fonts-path)
       (nerd-icons-install-fonts 'yes))))
 
-(use-package multiple-cursors
-  :defer t
-  :bind
-  ; multiple-cursors
-  ("C-S-c C-S-c" . 'mc/edit-lines)
-  ("C-S-c C-S-a" . 'mc/vertical-align-with-space)
-  ("C->" . 'mc/mark-next-like-this)
-  ("C-<" . 'mc/mark-previous-like-this)
-  ("C-c C-<" . 'mc/mark-all-like-this)
-  )
-
 (use-package visual-regexp
   :bind
   ("C-c r" . 'vr/replace)

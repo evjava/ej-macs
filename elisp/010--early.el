@@ -27,6 +27,16 @@
 (use-package cl-lib)
 (use-package s)
 (use-package quick-yes :load-path "non-elpa")
+(use-package multiple-cursors
+  :defer t
+  :bind
+  ; multiple-cursors
+  ("C-S-c C-S-c" . 'mc/edit-lines)
+  ("C-S-c C-S-a" . 'mc/vertical-align-with-space)
+  ("C->" . 'mc/mark-next-like-this)
+  ("C-<" . 'mc/mark-previous-like-this)
+  ("C-c C-<" . 'mc/mark-all-like-this)
+  )
 
 ;;;; ----- variables
 (defvar mc--read-char nil)
