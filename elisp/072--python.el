@@ -17,96 +17,87 @@
     (overlay-put ov 'display text-display)
     (overlay-put ov 'face `(:foreground "red"))))
 
-(defun ej/parse-flake8-line (line)
-  " returns `(pos-x pos-y text) "
-  (let* ((parts (s-split-up-to ":" line 3))
-         (pos-x (string-to-number (elt parts 1)))
-         (pos-y (string-to-number (elt parts 2)))
-         (text (s-trim (elt parts 3)))
-         (res (list pos-x pos-y text))
+(defun ej/prettify-ruff-json-line (ruff-json-line)
+  (let* ((loc (gethash "location" ruff-json-line))
+         (pos-x (gethash "row" loc))
+         (pos-y (gethash "column" loc))
+         (text (gethash "message" ruff-json-line))
+         (code (gethash "code" ruff-json-line))
+         (arrow "⤷")
+         (ln (format "%s%s %s: %s" (s-repeat (1- pos-y) " ") arrow code text))
+         ) ln))
+
+(defun ej/inline-ruff-json-line (ruff-json-line)
+  (let* ((ln-pretty (ej/prettify-ruff-json-line ruff-json-line))
+         (pos-x (gethash "row" (gethash "location" ruff-json-line))))
+    (show-chunk-overlay pos-x ln-pretty)))
+
+(defun ej/locate-ruff ()
+  (s-trim (shell-command-to-string "which ruff")))
+
+(defun ej/get-ruff-command (fname)
+  (let* ((ruff (ej/locate-ruff))
+         (cmd (format "%s check --output-format json %s" ruff fname))
+         ) cmd))
+
+(defun ej/postfix-f401 (ruff-json)
+  " filtering all F401 ( import-error ) if other errors present "
+  (let* (
+         (ruff-json-patched (vconcat (seq-remove (lambda (entry) (equal (gethash "code" entry) "F401")) ruff-json)))
+         (res (if (= 0 (length ruff-json-patched)) ruff-json
+                ruff-json-patched))
          ) res))
 
-(defun ej/pline-to-text (pline)
-  (let* ((parsed pline)
-         (pos-x (car parsed))
-         (pos-y (cadr parsed))
-         (text (caddr parsed)))
-    (format "%s⤷ %s" (s-repeat (1- pos-y) " ") text)))
+(defun ej/get-ruff-json (fname)
+  (let* ((cmd (ej/get-ruff-command fname))
+         (ruff-out (shell-command-to-string cmd))
+         (ruff-json (json-parse-string ruff-out))
+         ) ruff-json))
 
-(defun ej/run-test-function ()
-  (interactive)
-  (save-current-buffer)
-  (eval-buffer)
-  (with-current-buffer "dassist_checker.py"
-    (ej/annotate-py-with-flake8)))
+(defun ej/get-line (ruff-json-line)
+  (let* ((pos-x (gethash "row" (gethash "location" ruff-json-line)))
+         ) pos-x))
 
-(defun ej/inline-flake8-chunk (chunk)
-  (-let* ((pos-x (car chunk))
-          (parsed-lines (cdr chunk))
-          (texts (--map (ej/pline-to-text it) parsed-lines))
-          (text (s-join "\n" texts)))
-    (show-chunk-overlay pos-x text)))
-
-(setq QUALIFIED-PREF "Unable to find qualified")
-
-(defun ej/locate-flake8 ()
-  (s-trim (shell-command-to-string "which flake8")))
-
-(defun ej/flake8-parsed-lines (file-name)
-  (let* ((root-path (elpy-project-find-python-root))
-         (pyproject-toml-path (s-concat root-path "pyproject.toml"))
-         (f8 (ej/locate-flake8))
-         (cmd-pref (if (not (file-exists-p pyproject-toml-path)) (ej/locate-flake8)
-                     (format "%s --toml-config %s" f8 pyproject-toml-path)))
-         (cmd (format "%s %s" cmd-pref file-name))
-         (_ (message "command: %s" cmd))
-         (out (s-trim (shell-command-to-string cmd)))
-         (lines-0 (s-split "\n" out))
-         (lines (--remove (or (= 0 (length it)) (s-starts-with? QUALIFIED-PREF it)) lines-0))
-         (parsed-lines (--map (ej/parse-flake8-line it) lines))
-         ) parsed-lines))
-
-(defun ej/goto-line-column (pos-x pos-y)
-  (goto-char (point-min))
-  (forward-line (1- pos-x))
-  (beginning-of-line)
-  (forward-char (1- pos-y))
-  )
-
-(defun ej/annotate-py-with-flake8 (&optional goto-first)
+(defun ej/annotate-py-with-ruff (&optional goto-first)
   (interactive)
   (save-buffer)
-  (let* ((parsed-lines (ej/flake8-parsed-lines (buffer-file-name)))
-         (chunks (--group-by (car it) parsed-lines))
-         (pline-0 (car parsed-lines))
-         (pos-x (unless (= 0 (length pline-0)) (car pline-0)))
-         (pos-y (unless (= 0 (length pline-0)) (cadr pline-0)))
+  (let* ((fname (buffer-file-name))
+         (ruff-json-before (ej/get-ruff-json fname))
+         (ruff-json (ej/postfix-f401 ruff-json-before))
          )
     (ej/remove-overlays)
-    (if (not parsed-lines)
-        (message "No style problems found")
-      (when parsed-lines
-        (save-excursion
-          (cl-loop
-           for chunk in chunks
-           do (message "chunk: %S" chunk)
-           do (ej/inline-flake8-chunk chunk)))
-        (message "goto: %s" pos-x)
-        (when goto-first
+    (if (= 0 (length ruff-json))
+        (message "No problems found")
+      (save-excursion
+        (cl-loop
+         for ruff-json-line across ruff-json
+         do (ej/inline-ruff-json-line ruff-json-line)))
+      (when goto-first
+        (let* ((ruff-json-line-0 (aref ruff-json 0))
+               (pos-x (ej/get-line ruff-json-line-0))
+               (pos-y (gethash "column" (gethash "location" ruff-json-line-0))))
           (ej/goto-line-column pos-x pos-y))))))
 
-(defun ej/flake8-warn-keys-for-cur-line ()
+(defun ej/ruff-warn-keys-for-cur-line-inner (fname cur-line-pos)
+  (let* ((ruff-json (ej/get-ruff-json fname))
+         (cur-ruff-json (cl-loop for entry across ruff-json if (eq cur-line-pos (ej/get-line entry)) collect entry))
+         (cur-keys (--map (gethash "code" it) cur-ruff-json))
+         ) cur-keys))
+
+(setq fname "/home/tagin/1/repo/agi/services/chat-manager/src/tracks/t_hosted_tracks.py")
+(setq cur-line-pos 106)
+
+(defun ej/ruff-warn-keys-for-cur-line ()
   (interactive)
-  (let* ((parsed-lines (ej/flake8-parsed-lines (buffer-file-name)))
+  (let* ((fname (buffer-file-name))
          (cur-line-pos (line-number-at-pos))
-         (cur-parsed-lines (--filter (eq cur-line-pos (car it)) parsed-lines))
-         (keys (--map (car (s-split-up-to " " (caddr it) 1)) cur-parsed-lines))
-         ) keys))
+         (res (ej/ruff-warn-keys-for-cur-line-inner fname cur-line-pos))
+         ) res))
 
 (defun ej/noqa-fix (&optional noca-comment-other)
   (interactive)
   (-when-let* ((noqa-comment (or noca-comment-other "todo-fix"))
-               (keys (-uniq (ej/flake8-warn-keys-for-cur-line)))
+               (keys (-uniq (ej/ruff-warn-keys-for-cur-line)))
                (keys-joined (s-join ", " keys))
                (noqa-comment (format "  # noqa: %s: %s" keys-joined noqa-comment)))
     (when noqa-comment
@@ -114,7 +105,7 @@
       (end-of-line)
       (insert noqa-comment)
       (beginning-of-line)
-      (ej/annotate-py-with-flake8))))
+      (ej/annotate-py-with-ruff))))
 
 (defun elpy-rgrep-symbol-after (&rest args)
   (other-window 1)
@@ -217,24 +208,22 @@
   (interactive)
   (save-buffer)
   (let* ((fpath buffer-file-name)
+         (ruff (ej/locate-ruff))
+         ;; todo fix
+         (autoimport-config-file "/home/tagin/1/pyproject.toml")
          (pre-commands (list
-                        "black"
+                        (format "%s check --fix" ruff)
+                        (format "%s format" ruff)
                         ;; https://lyz-code.github.io/autoimport/
-                        "autoimport"))
+                        (format "autoimport --config-file %s" autoimport-config-file)
+                        ;; todo fix
+                        (format "%s format" ruff)
+                        ))
          (commands (--map (format "%s %s" it fpath) pre-commands)))
     (cl-loop
      for cmd in commands
      do (shell-command-to-string cmd))
     ))
-
-
-;; (projectile-project-root ))
-;;     (projectile-ripgrep pattern)
-;;     (other-window 1)
-;;     (sit-for 0.4)
-;;     (search-forward pattern)
-;;     (compile-goto-error)
-;;     ))
 
 (defun ej/find-class-symbol ()
   (interactive)
@@ -247,14 +236,6 @@
          (output-parts (s-split ":" output))
          (fpath (car output-parts)))
     (g fpath :str pattern)))
-
-;; (projectile-project-root ))
-;;     (projectile-ripgrep pattern)
-;;     (other-window 1)
-;;     (sit-for 0.4)
-;;     (search-forward pattern)
-;;     (compile-goto-error)
-;;     ))
 
 (defun ej/get-prev-line-var-name ()
   (save-excursion
@@ -272,8 +253,8 @@
    "Annotations"
 	 (
     ("s-i" iove/annotate)
-    ("f" (ej/annotate-py-with-flake8 t) "flake-8")
-    ("F" ej/annotate-py-with-flake8 "flake-8")
+    ("l" (ej/annotate-py-with-ruff t) "linter+go")
+    ("L" ej/annotate-py-with-ruff "linter")
     ("n" ej/noqa-fix "noqa-fix")
     ("N" (ej/noqa-fix "intended") "noqa-fix-intended")
     ("v" vc-annotate "vc-annotate")
