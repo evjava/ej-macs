@@ -163,6 +163,25 @@
       (file-name-directory (buffer-file-name))
     default-directory)))
 
+(defun ej/find-nearest-by-pattern (pattern)
+  (save-window-excursion
+    (let ((starting-window (selected-window)))
+      (other-window 1)
+      (cl-loop for window = (selected-window) then (other-window 1)
+               until (or (null window) (eq window starting-window))
+               for buffer = (window-buffer window)
+               when (s-matches? pattern (buffer-name buffer))
+               return buffer
+               finally return nil))))
+
+(defun ej/insert-nearest-playground ()
+  (interactive)
+  (let* ((playground-buffer (ej/find-nearest-by-pattern "playground.*.py")))
+    (if (null playground-buffer)
+        (message "Nearest `playground*` not found!")
+      (insert (format "python %s" playground-buffer)))))
+
+
 (pretty-hydra-define ej/shell-helper (:foreign-keys warn :exit t :quit-key "q")
   (
    "cd"
@@ -188,7 +207,7 @@
    "Git"
    (
     ("m" (insert (completing-read "Choose" (ej/git-modified-files))) "choose modified git file")
-    ("L" (insert-send "git branch --list --sort=-committerdate") "insert `git branch --list`")
+    ;; ("L" (insert-send "git branch --list --sort=-committerdate") "insert `git branch --list`")
     ("?" (insert (completing-read "Choose" (ej/git-untracked-files))) "choose untracked git file")
     ("{" (insert-send "git checkout -") "git co -")
     ("+" ej/start-new-commit "start new commit")
@@ -200,6 +219,7 @@
     ("p" (insert-send "import pandas as pd") "import pandas as pd")
     ("P" (insert-send "from pathlib import Path") "from pathlib import Path")
     ("c" (insert-send "from collections import Counter, defaultdict") "Counter & defaultdict")
+    ("L" (ej/insert-nearest-playground) "python playground_*")
     )
    ))
 
