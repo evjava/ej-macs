@@ -400,9 +400,6 @@
              (next-buf (elt sorted-shell-buffers next-idx)))
         (switch-to-buffer next-buf))
     (message "No *shell*<N> buffers found!")))
-(defun rename-shell (new-shell-name)
-  (interactive "senter new shell name: ")
-  (rename-buffer (format "*shell*<%s>" new-shell-name)))
 
 (defun ej/run-other-window ()
   (interactive)
@@ -437,8 +434,17 @@
               :fuzzy-match t)
    :buffer "*Bash history*"))
 (defun ej/rename-shell (new-shell-name)
-  (interactive "senter new shell name: ")
-  (rename-buffer (format "*shell*<%s>" new-shell-name)))
+  "Rename the current shell buffer to *shell*<NEW-SHELL-NAME>.
+If a buffer with that name already exists, ask for confirmation before renaming."
+  (interactive "sEnter new shell name: ")
+  (let* ((new-name (format "*shell*<%s>" new-shell-name))
+         (buffer (get-buffer new-name)))
+    (if buffer
+        (if (not (y-or-n-p (format "Buffer '%s' already exists. Kill it? " new-name)))
+            (message "Cancelled!")
+          (kill-buffer buffer)
+          (rename-buffer new-name))
+      (rename-buffer new-name))))
 (define-key shell-mode-map (kbd "C-c s-r") #'ej/rename-shell)
 (define-key shell-mode-map (kbd "M-s-r") #'ej/bash-history)
 (define-key shell-mode-map (kbd "s-t") #'toggle-truncate-lines)

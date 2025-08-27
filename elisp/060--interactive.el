@@ -11,11 +11,14 @@
                 (s-split "\n" output)))
          ) res))
 
-(defun ej/modified-git-files ()
+(defun ej/git-modified-files ()
   (let* ((fs1 (ej/output-lines "git diff --name-only --cached"))
          (fs2 (ej/output-lines "git diff --name-only"))
          (res (-concat fs1 fs2))
          ) res))
+
+(defun ej/git-untracked-files ()
+  (ej/output-lines "git status -s | awk '/^\\?\\?/ {print $2}'"))
 
 (setq ej/branches-cmd "git branch --list --sort=-committerdate")
 (setq ej/handy-letters-git "asfjklghqwertyuiopvbn")
@@ -64,6 +67,7 @@
   (let* ((lines (s-split "\n" cmd-output))
          (commands (cl-loop
                     for ln in lines
+                    if (and (/= 0 (length ln)) (not (equal ?\ (elt ln 0))))
                     for ln-parts = (s-split-up-to " " (s-trim ln) 1)
                     for (cnt . cmd) = ln-parts
                     if (is-integer cnt)
@@ -91,12 +95,22 @@
     (when (string-match "git push --set-upstream.*" prev-output)
       (list (match-string-no-properties 0 prev-output)))))
 
+(defun ej/parse-updating (prev-output)
+  (let* ((pat (rx "Updating " (= 7 (any "a-z" "0-9")) ".." (= 7 (any "a-z" "0-9")))))
+    (when (string-match pat prev-output)
+      (let* ((match (match-string-no-properties 0 prev-output))
+             (commits-range (cadr (s-split " " match)))
+             (res (list (format "git diff %s" commits-range)))
+             ) res))))
+
 (defun ej/suggest-context-commands ()
   (interactive)
   (let* ((prev-output (ej/get-previous-cmd-output))
          (commands (or
                     (ej/parse-commands-from-history prev-output)
-                    (ej/parse-push-commands prev-output)))
+                    (ej/parse-push-commands prev-output)
+                    (ej/parse-updating prev-output)
+                    ))
          (commands-cut (seq-subseq commands 0 (min (length commands) ej/max-commands)))
          (hydra (ej/make-hydra-from-lines commands-cut))
          )
@@ -141,6 +155,14 @@
          )
     (find-file tramp-path)))
 
+
+
+(defun ej/get-dir-from-previous-buffer ()
+  (with-current-buffer (other-buffer (current-buffer))
+    (if (buffer-file-name)
+      (file-name-directory (buffer-file-name))
+    default-directory)))
+
 (pretty-hydra-define ej/shell-helper (:foreign-keys warn :exit t :quit-key "q")
   (
    "cd"
@@ -148,6 +170,7 @@
     ("!" (insert-send (format "cd %s" (thing-at-point 'existing-filename))) "cd to dir at point")
     ("<" (insert-send "cd -") "cd -")
     ("r" (insert-send (format "cd %s" (shell-command-to-string "git root"))) "cd git root")
+    ("$" (insert-send (format "cd %s" (ej/get-dir-from-previous-buffer))) "cd dir in prev buffer")
     )
 
    "Tools"
@@ -157,15 +180,16 @@
     ("j" (insert "python -m json.tool --no-ensure-ascii") "python prettify via json.tool")
     ("s-i" (ej/suggest-context-commands) "suggest commands from context")
     ("f" (ej/convert-files-to-loop) "convert files output to loop")
-    ("?" elpy-rgrep-symbol "find-symbol")
+    (">" elpy-rgrep-symbol "find-symbol")
     ("/" (insert "fd -e py -x rg -H ") "fd -e py -x rg -H")
     ("t" (ej/start-tramp) "tramp")
     )
 
    "Git"
    (
-    ("m" (insert (completing-read "Choose" (ej/modified-git-files))) "choose modified git file")
+    ("m" (insert (completing-read "Choose" (ej/git-modified-files))) "choose modified git file")
     ("L" (insert-send "git branch --list --sort=-committerdate") "insert `git branch --list`")
+    ("?" (insert (completing-read "Choose" (ej/git-untracked-files))) "choose untracked git file")
     ("{" (insert-send "git checkout -") "git co -")
     ("+" ej/start-new-commit "start new commit")
     ("b" (ej/switch-branch) "switch branch")
@@ -179,34 +203,45 @@
     )
    ))
 
-(defun ej/cd-dir-from-stdout (firstp)
-  (let* ((last-fpath
+(defun ej/get-fpath (&optional firstp)
+  (let* ((fpath
           (save-excursion
             (if (not firstp) (forward-line -3)
               (comint-previous-prompt 1)
               (forward-line 1))
             (end-of-line)
             (thing-at-point 'existing-filename)))
-         (last-dir
-           (if (file-directory-p last-fpath)
-               last-fpath
-             (file-name-directory last-fpath))))
-    (insert (format "cd %s" last-dir))
+         ) fpath))
+
+(defun ej/cd-dir-from-stdout (&optional firstp)
+  (let* ((fpath (ej/get-fpath firstp))
+         (dir (if (file-directory-p fpath) fpath (file-name-directory fpath))))
+    (insert (format "cd %s" dir))
     (comint-send-input)))
 
 (defun ej/cd-dir-from-stdout-first () (interactive) (ej/cd-dir-from-stdout t))
 (defun ej/cd-dir-from-stdout-last () (interactive) (ej/cd-dir-from-stdout nil))
+(defun ej/open-file-first () (interactive) (find-file (ej/get-fpath t)))
 
 (defun ej/shell-hook ()
   (interactive)
-  (local-set-key (kbd "C-c s-r") 'rename-shell)
+  (local-set-key (kbd "C-c s-r") 'ej/rename-shell)
   (local-set-key (kbd "s-j") 'ej/shell-helper/body)
-  (local-set-key (kbd "C-s-j") 'ej/cd-dir-from-stdout)
   (local-set-key (kbd "C-s-j") 'ej/cd-dir-from-stdout-first)
+  (local-set-key (kbd "C-s-o") 'ej/open-file-first)
   (local-set-key (kbd "M-s-j") 'ej/cd-dir-from-stdout-last)
   (local-set-key (kbd "s-<backspace>") '(lambda () (interactive) (insert-send "cd -")))
   )
 (add-hook 'shell-mode-hook 'ej/shell-hook)
+
+(defun ej/insert-src-and-tests-subdirs ()
+  (interactive)
+  (let* ((dir (dired-current-directory))
+         (dir-name (file-name-nondirectory (directory-file-name dir)))
+         (module-name (s-replace "-" "_" dir-name))
+         (src-dir (format "package/src/%s" module-name)))
+    (dired-insert-subdir "tests")
+    (dired-insert-subdir src-dir)))
 
 ;; dired
 (defhydra ej/dired-interactive (:exit t :columns 1)
@@ -214,6 +249,7 @@
   ("b" ej/dired-file-name-add-date "add date prefix")
   ("t" ej/toggle-empty-dir-file "toggle empty dir <-> file")
   ("i" dired-insert-subdir "dired-insert-subdir")
+  ("l" ej/insert-src-and-tests-subdirs "dired-insert-subdir: tests, src")
   )
 
 (defun ej/dired-hook ()

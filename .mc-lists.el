@@ -21,6 +21,7 @@
         dired-clean-directory
         dired-find-file-other-window
         dired-toggle-read-only
+        dired-unmark-backward
         downcase-region
         ej/add-line-item
         ej/copy-all

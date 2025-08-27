@@ -737,6 +737,8 @@ same directory as the org-buffer and insert a link to this file."
   " Hydra navigation stuff "
   ("!" ej/reopen "reopen" :exit t)
   ("@" fname "copy file name" :exit t)
+  ("f" fname "Copy path to file of buffer" :exit t)
+  ("F" (file-name-nondirectory buffer-file-name) "Copy name of file of buffer" :exit t)
   ("2" ej/split-show-dired "split and dired" :exit t)
   ("3" ej/src-code-with-asmtools "open code block with asmtools" :exit t)
   ("e" split-window-horizontally "split horizontally")
@@ -750,7 +752,6 @@ same directory as the org-buffer and insert a link to this file."
   ("m" (switch-to-buffer "*Messages*") "*Messages*" :exit t)
   ("p" (switch-to-buffer "*Packages*") "*Packages*" :exit t)
   ("P" (switch-to-buffer "*Python*") "*Python*" :exit t)
-  ("f" fname "Copy path to file of buffer" :exit t)
   ("c" ej/copy-all "Copy buffer" :exit t)
   ("<f1>" windresize "windresize" :exit t)
   ("<f8>" ej/dired-in-other-window "Dired in other window" :exit t)
@@ -891,14 +892,27 @@ same directory as the org-buffer and insert a link to this file."
   (cond
    ((s-starts-with? "Dockerfile:" string) nil)
    ((s-starts-with? "Makefile:" string)   nil)
-   (t                                     (funcall proc string))))
+
+   (t (funcall proc string))))
 (advice-add 'ffap-url-p :around #'ej/advice--ffap-url-p--fix-prefix)
+
+(defun ej/find-filename-from-diff ()
+  (let* ((fp (thing-at-point 'filename)))
+    (cond
+     ((s-starts-with? "a/" fp) (substring fp 2))
+     ((s-starts-with? "b/" fp) (substring fp 2))
+     (t nil))))
+
 
 (defun find-file-at-point-with-line (&optional filename)
   "Opens file at point and moves point to line specified next to file name."
   (interactive)
   (let* ((filename-guess (ffap-guesser))
-         (filename (or filename (if current-prefix-arg (ffap-prompter) filename-guess)))
+         (filename (or
+                    filename
+                    (if current-prefix-arg (ffap-prompter) filename-guess)
+                    (ej/find-filename-from-diff)
+                    ))
          (filename-fix (when filename-guess
                          (or
                           (ej/ffap-guesser (car (s-split ":" filename-guess)))
@@ -1069,3 +1083,10 @@ same directory as the org-buffer and insert a link to this file."
     (delete-directory path)
     (write-region "" nil path t)
     (revert-buffer)))
+
+(defun ej/goto-line-column (pos-x pos-y)
+  (goto-char (point-min))
+  (forward-line (1- pos-x))
+  (beginning-of-line)
+  (forward-char (1- pos-y))
+  )

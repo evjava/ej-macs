@@ -145,8 +145,10 @@
   (interactive)
   (let* ((commands (nav-nav-paths nav-nav-file))
          (used-keys (--filter (not (equal it ".")) (-map #'car commands)))
-         (free-keys (--filter (not (-contains? used-keys it)) nav-nav-all-keys)))
-    (message "free keys: %s" free-keys)))
+         (free-keys (--filter (not (-contains? used-keys it)) nav-nav-all-keys))
+         (free-keys-pretty (s-join " " free-keys))
+         )
+    (message "free keys: %s" free-keys-pretty)))
 
 (defun nav-nav-navigate-show-missing-paths ()
   (interactive)
