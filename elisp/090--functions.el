@@ -1090,3 +1090,11 @@ same directory as the org-buffer and insert a link to this file."
   (beginning-of-line)
   (forward-char (1- pos-y))
   )
+
+(defun ej/insert-path-from-buffers ()
+  "Suggest full paths from opened buffers and insert selected path"
+  (interactive)
+  (let* ((buffer-files (->> (buffer-list) (-map #'buffer-file-name) (-non-nil) (-map #'expand-file-name) (-sort #'string-lessp)))
+         (selected-path (completing-read "Select path to insert: " buffer-files nil t)))
+    (insert selected-path)))
+(global-set-key (kbd "M-s-i") 'ej/insert-path-from-buffers)

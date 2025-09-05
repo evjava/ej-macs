@@ -5,7 +5,9 @@
   (setq indent-tabs-mode nil)
   (setq python-indent 4)
   (setq python-indent-def-block-scale 1)
-  (setq tab-width 2))
+  (setq tab-width 2)
+  (setq fill-column 120)
+  )
 
 (add-hook 'python-mode-hook 'ej/hook-python-vars)
 

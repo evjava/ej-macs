@@ -174,11 +174,11 @@
                return buffer
                finally return nil))))
 
-(defun ej/insert-nearest-playground ()
+(defun ej/insert-nearest-py ()
   (interactive)
-  (let* ((playground-buffer (ej/find-nearest-by-pattern "playground.*.py")))
+  (let* ((playground-buffer (ej/find-nearest-by-pattern ".*\\.py")))
     (if (null playground-buffer)
-        (message "Nearest `playground*` not found!")
+        (message "Nearest `py*` not found!")
       (insert (format "python %s" playground-buffer)))))
 
 
@@ -202,6 +202,7 @@
     (">" elpy-rgrep-symbol "find-symbol")
     ("/" (insert "fd -e py -x rg -H ") "fd -e py -x rg -H")
     ("t" (ej/start-tramp) "tramp")
+    ("v" (insert (format "shifted version -> %s" (caddr (s-split "=" (s-trim (shell-command-to-string "make -s v")))))) "shifted version -> ..")
     )
 
    "Git"
@@ -219,7 +220,7 @@
     ("p" (insert-send "import pandas as pd") "import pandas as pd")
     ("P" (insert-send "from pathlib import Path") "from pathlib import Path")
     ("c" (insert-send "from collections import Counter, defaultdict") "Counter & defaultdict")
-    ("L" (ej/insert-nearest-playground) "python playground_*")
+    ("L" (ej/insert-nearest-py) "python *.py")
     )
    ))
 
@@ -259,7 +260,9 @@
   (let* ((dir (dired-current-directory))
          (dir-name (file-name-nondirectory (directory-file-name dir)))
          (module-name (s-replace "-" "_" dir-name))
-         (src-dir (format "package/src/%s" module-name)))
+         (src-dir-maybe (format "src/%s" module-name))
+         (src-dir (if (file-exists-p src-dir-maybe) src-dir-maybe "src"))
+         )
     (dired-insert-subdir "tests")
     (dired-insert-subdir src-dir)))
 
