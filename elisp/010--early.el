@@ -2,7 +2,9 @@
 (require 'package)
 (package-initialize)
 (let ((repos '(("melpa" . "http://melpa.org/packages/")
-               ("melpa-stable" . "http://stable.melpa.org/packages/"))))
+               ("melpa-stable" . "http://stable.melpa.org/packages/")
+               ("gnu-elpa" . "https://elpa.gnu.org/packages/")
+               )))
   (mapc (lambda (repo) (add-to-list 'package-archives repo)) repos))
 
 ;;;; ----- use-package

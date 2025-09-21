@@ -220,6 +220,7 @@
                         (format "autoimport --config-file %s" autoimport-config-file)
                         ;; todo fix
                         (format "%s format" ruff)
+                        (format "%s check --select I --fix" ruff)
                         ))
          (commands (--map (format "%s %s" it fpath) pre-commands)))
     (cl-loop

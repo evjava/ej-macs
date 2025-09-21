@@ -301,7 +301,7 @@ C-u 0 M-x enumerate-rectangle"
           (point-b (point)))
       (write-region point-a point-b tmp-name1 t)))
   (write-region (current-kill 0) nil tmp-name2 'append)
-  (shell-command (format "%s %s %s > %s" command tmp-name1 tmp-name2 fname-out))
+  (shell-command (format "%s %s %s > %s" command tmp-name2 tmp-name1 fname-out))
   (g fname-out))
 
 (defun ej/diff ()
