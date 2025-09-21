@@ -56,6 +56,7 @@
   (if ej/calculator-mode
       (add-hook 'post-command-hook 'ej/calculator)
     (remove-hook 'post-command-hook 'ej/calculator)))
+(global-set-key (kbd "s-c") 'ej/calculator-mode)
 
 (defun avg (&rest args)
   (/ (* 1.0 (apply #'+ args)) (length args)))
@@ -1098,3 +1099,13 @@ same directory as the org-buffer and insert a link to this file."
          (selected-path (completing-read "Select path to insert: " buffer-files nil t)))
     (insert selected-path)))
 (global-set-key (kbd "M-s-i") 'ej/insert-path-from-buffers)
+
+(defun ej/kill-shells ()
+  (interactive)
+  (let* ((kill-buffer-query-functions nil))
+    (unless (equal major-mode 'shell-mode)
+      (ej/switch-to-prev-shell))
+    (while (equal major-mode 'shell-mode)
+      (when (yes-or-no-p "Kill?")
+        (kill-this-buffer))
+      (ej/switch-to-prev-shell))))
