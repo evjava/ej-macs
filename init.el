@@ -1,18 +1,9 @@
-;;;; ----- GC
-(setq old-threshold gc-cons-threshold)
-(setq gc-cons-threshold most-positive-fixnum)
+(setq gc-cons-threshold most-positive-fixnum) ;; gc trick
+(dolist (dir '("elisp" "elpa" "non-elpa")) (add-to-list 'load-path (locate-user-emacs-file dir))) ;; load-path
+(let ((default-directory (locate-user-emacs-file "elpa1")))
+  (when (file-exists-p default-directory) (normal-top-level-add-subdirs-to-load-path)))
 
-;;;; ----- load-path
-(add-to-list 'load-path (locate-user-emacs-file "elisp"))
-(add-to-list 'load-path (locate-user-emacs-file "elpa"))
-(add-to-list 'load-path (locate-user-emacs-file "non-elpa"))
-(let ((default-directory (locate-user-emacs-file "elpa")))
-  (when (file-exists-p default-directory)
-    (normal-top-level-add-subdirs-to-load-path)))
-
-;;;; ----- parts
-(defun load-el (rel-path)
-  (load-file (expand-file-name rel-path user-emacs-directory)))
+(defun load-el (rel-path) (load-file (expand-file-name rel-path user-emacs-directory)))
 (load-el "elisp/010--early.el")
 (load-el "elisp/011--early-functions.el")
 (load-el "elisp/012--early-shortcuts.el")
@@ -30,10 +21,7 @@
 (load-el "elisp/090--functions.el")
 (load-el "elisp/100--org.el")
 (load-el "elisp/101--org-latex.el")
-
 (when priv-conf-file (load-file priv-conf-file))
 
-;;;; ----- GC
-(setq gc-cons-threshold old-threshold)
-;;;; ----- DONE
+(setq gc-cons-threshold (default-value 'gc-cons-threshold))  ;; gc trick rollback
 (message "Emacs started in %s" (emacs-init-time))
