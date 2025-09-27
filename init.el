@@ -1,4 +1,4 @@
-(setq gc-cons-threshold most-positive-fixnum) ;; gc trick
+(setq gc-cons-threshold-old gc-cons-threshold gc-cons-threshold most-positive-fixnum) ;; gc trick
 (dolist (dir '("elisp" "elpa" "non-elpa")) (add-to-list 'load-path (locate-user-emacs-file dir))) ;; load-path
 (let ((default-directory (locate-user-emacs-file "elpa1")))
   (when (file-exists-p default-directory) (normal-top-level-add-subdirs-to-load-path)))
@@ -23,5 +23,5 @@
 (load-el "elisp/101--org-latex.el")
 (when priv-conf-file (load-file priv-conf-file))
 
-(setq gc-cons-threshold (default-value 'gc-cons-threshold))  ;; gc trick rollback
+(setq gc-cons-threshold gc-cons-threshold-old)  ;; gc trick rollback
 (message "Emacs started in %s" (emacs-init-time))
