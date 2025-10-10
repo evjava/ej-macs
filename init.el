@@ -18,6 +18,7 @@
 (load-el "elisp/071--elisp.el")
 (load-el "elisp/072--python.el")
 (load-el "elisp/080--modules.el")
+(load-el "elisp/081--modules--llm.el")
 (load-el "elisp/090--functions.el")
 (load-el "elisp/100--org.el")
 (load-el "elisp/101--org-latex.el")
