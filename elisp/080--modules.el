@@ -181,7 +181,8 @@
          ("C-<f10>" . 'emms-next)
          ("C-S-<f9>" . 'emms-seek-backward)
          ("C-S-<f10>" . 'emms-seek-forward)
-         ("C-s-e" . 'emms)))
+         ;; ("C-s-e" . 'emms)
+         ))
 
 ;; (ignore-errors 
 ;;   (use-package saveplace
