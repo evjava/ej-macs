@@ -61,8 +61,8 @@
 (global-set-key (kbd "s-M-k") 'ej/save-kill-line)
 (global-set-key (kbd "C-s-k") 'ej/save-kill-line2)
 (global-set-key (kbd "s-u") 'ej/duplicate-line)
-(global-set-key (kbd "s-r") 'ej/kill-rectangle)
-(global-set-key (kbd "s-y") 'ej/insert-rectangle)
+(global-set-key (kbd "s-r") 'kill-rectangle)
+(global-set-key (kbd "s-y") 'yank-rectangle)
 (global-set-key (kbd "C-x s-r") 'string-insert-rectangle)
 (global-set-key (kbd "M-z") 'zap-up-to-char)
 (global-set-key (kbd "<ESC> M-%") 'query-replace-regexp)
@@ -90,4 +90,3 @@
 ;; ej/..
 (global-set-key (kbd "C-`") 'ej/tab-to-previous-buffer)
 (global-set-key (kbd "C-c C-M-r") 'ej/restart-emacs)
-
