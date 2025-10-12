@@ -18,5 +18,6 @@
   (load-file "elisp/090--functions.el")
   (load-file "elisp/100--org.el")
   (load-file "elisp/101--org-latex.el")
+  (load-file "elisp/102--org-cur.el")
   (when priv-conf-file (load-file priv-conf-file)))
 (message "Emacs started in %s" (emacs-init-time))
