@@ -1,3 +1,8 @@
+(dolist (dir '("elisp" "elpa" "non-elpa"))
+  (add-to-list 'load-path (locate-user-emacs-file dir))) ;; load-path
+
+(let ((default-directory (locate-user-emacs-file "elpa")))
+  (when (file-exists-p default-directory) (normal-top-level-add-subdirs-to-load-path)))
 ;;;; ----- packages
 (require 'package)
 (package-initialize)
