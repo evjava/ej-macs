@@ -1,4 +1,4 @@
-(require 'org-ql)
+(use-package org-ql)
 
 (defun org-get-all-subtree ()
   "Get full ORG subtree "
