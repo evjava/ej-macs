@@ -669,33 +669,6 @@ same directory as the org-buffer and insert a link to this file."
   (dired-jump))
 
 (defalias 'async-cmd 'async-shell-command)
-(defhydra ej/hydra-buffers-windows (:foreign-keys warn :columns 1)
-  " Hydra navigation stuff "
-  ("!" ej/reopen "reopen" :exit t)
-  ("@" fname "copy file name" :exit t)
-  ("f" fname "Copy path to file of buffer" :exit t)
-  ("F" (file-name-nondirectory buffer-file-name) "Copy name of file of buffer" :exit t)
-  ("2" ej/split-show-dired "split and dired" :exit t)
-  ("3" ej/src-code-with-asmtools "open code block with asmtools" :exit t)
-  ("e" split-window-horizontally "split horizontally")
-  ("v" split-window-vertically "split vertically")
-  ("o" other-window "other window")
-  ("q" delete-other-windows "delete-other-windows")
-  ("0" delete-window "delete-window")
-  ("s" swap-buffers-in-windows "swap windows" :exit t)
-  ("t" ej/toggle-pdf-org "toggle pdf <-> org" :exit t)
-  ("T" ej/toggle-theme "toggle theme" :exit t)
-  ("m" (switch-to-buffer "*Messages*") "*Messages*" :exit t)
-  ("p" (switch-to-buffer "*Packages*") "*Packages*" :exit t)
-  ("P" (switch-to-buffer "*Python*") "*Python*" :exit t)
-  ("c" ej/copy-all "Copy buffer" :exit t)
-  ("<f1>" windresize "windresize" :exit t)
-  ("<f8>" ej/dired-in-other-window "Dired in other window" :exit t)
-  ("<ESC>" nil "quit")
-)
-
-(global-set-key (kbd "<M-f8>") 'ej/hydra-buffers-windows/body)
-(suppress-keymap ej/hydra-buffers-windows/keymap)
 
 (defun ej/title-by-url (url)
   (let* ((command (format "wget -qO- %s |  gawk -v IGNORECASE=1 -v RS='</title' 'RT{gsub(/.*<title[^>]*>/,\"\");print;exit}'" url))
@@ -760,17 +733,6 @@ same directory as the org-buffer and insert a link to this file."
                        (s-replace ":;" ":")
                        (s-trim))))
      (insert (format "`%s`" patched))))
-
-(defhydra ej/hydra-yank (:foreign-keys warn :columns 1 :exit t)
-  " Yank wrappers "
-  ("t" ej/yank-downloaded-title "download url title")
-  ("/" ej/yank-double-slashes "fix slashes")
-  ("w" ej/yank-encode-wiki-links "encode wiki links")
-  ("f" ej/yank-title-as-filename "as filename")
-  ("l" ej/yank-link-to-wiki "org-link to wiki")
-  ("p" ej/yank-python-onelinefy "Python onelinefy")
-  ("<ESC>" nil "exit"))
-(global-set-key (kbd "C-s-y") 'ej/hydra-yank/body)
 
 (defun ej/drop-brackets-if-has (str)
   (cl-flet ((start-end? (p s) (and (s-starts-with? p str) (s-ends-with? s str))))
@@ -1044,3 +1006,26 @@ same directory as the org-buffer and insert a link to this file."
       (when (yes-or-no-p "Kill?")
         (kill-this-buffer))
       (ej/switch-to-prev-shell))))
+
+(defvar ej--tab-buffer-ring nil "List of buffers for cycling in `ej/tab-through-previous-buffers'.")
+(defvar ej--tab-buffer-index 0 "Current index in `ej--tab-buffer-ring'.")
+(defun ej/tab-through-previous-buffers ()
+  "Switch to previous buffers in sequence when repeatedly invoked."
+  (interactive)
+  (if (not (eq last-command 'ej/tab-through-previous-buffers))
+      ;; Первый вызов — сформировать список буферов
+      (let* ((current (current-buffer))
+             (buffers (seq-remove #'minibufferp (buffer-list)))
+             (others (delq current buffers)))
+        (setq ej--tab-buffer-ring others)
+        (setq ej--tab-buffer-index 0)
+        (when ej--tab-buffer-ring
+          (switch-to-buffer (car ej--tab-buffer-ring))))
+    ;; Повторный вызов — просто двигаемся дальше по списку
+    (progn
+      (setq ej--tab-buffer-index (1+ ej--tab-buffer-index))
+      (when (>= ej--tab-buffer-index (length ej--tab-buffer-ring))
+        (setq ej--tab-buffer-index 0))
+      (switch-to-buffer (nth ej--tab-buffer-index ej--tab-buffer-ring)))
+    ))
+(global-set-key (kbd "C-~") #'ej/tab-through-previous-buffers)

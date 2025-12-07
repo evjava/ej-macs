@@ -34,6 +34,21 @@
                 ((eq mode 4) "\ntitle: ")
                 (t "\n"))))
 
+(defun ej/cur-insert-identity ()
+  (interactive)
+  (if (not (s-starts-with? "**" (thing-at-point 'line)))
+      (message "Move point on org-header")
+    (let* ((_ (search-forward "\ndate: "))
+           (date-start (point))
+           (_ (end-of-line))
+           (date-end (point))
+           (date (buffer-substring-no-properties date-start date-end))
+           (_ (newline))
+           (uuid (org-id-uuid))
+           (identity (s-concat date "$$" uuid)))
+      (insert (format "identity: %s" identity))
+      (kill-new identity)
+      (message "Copied to clipboard: %s" identity))))
 
 (use-package dyno
   :load-path "non-elpa"
