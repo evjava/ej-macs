@@ -222,3 +222,6 @@
       (comint-send-input)
       (other-window -1))))
 (global-set-key (kbd "<C-M-return>") 'ej/run-other-window)
+
+(use-package expand-region
+  :bind ("C-=" . er/expand-region))

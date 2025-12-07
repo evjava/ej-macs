@@ -67,7 +67,7 @@
   (let* ((lines (s-split "\n" cmd-output))
          (commands (cl-loop
                     for ln in lines
-                    if (and (/= 0 (length ln)) (not (equal ?\ (elt ln 0))))
+                    if (and (/= 0 (length ln)))
                     for ln-parts = (s-split-up-to " " (s-trim ln) 1)
                     for (cnt . cmd) = ln-parts
                     if (is-integer cnt)
@@ -79,16 +79,16 @@
 (setq ej/max-commands (length ej/handy-letters))
 
 ;; todo generalize
-(defun ej/make-hydra-from-lines (commands)
-  (let* ((pairs (-zip (string-to-list ej/handy-letters) commands))
-         (sexp (--map `(,(format "%c" (car it)) (insert-send ,(cdr it)) ,(cdr it)) pairs))
+(defun ej/make-hydra-from-lines (commands-paths)
+  (let* ((hydra-sexps (--map (if (file-exists-p it) `(find-file ,it) `(insert-send ,it)) commands-paths))
+         (triples (-zip (string-to-list ej/handy-letters) hydra-sexps commands-paths))
+         (sexp (--map `(,(format "%c" (car it)) ,(cadr it) ,(caddr it)) triples))
          (hydra `(defhydra hydra-run-command (:exit t :columns 1 :foreign-keys warn)
                    "run command"
                    ,@sexp
                    ("\t\tq" nil "quit")))
          )
     hydra))
-  
 
 (defun ej/parse-push-commands (prev-output)
   (when (s-contains? "has no upstream branch." prev-output)
@@ -103,6 +103,24 @@
              (res (list (format "git diff %s" commits-range)))
              ) res))))
 
+(defun ej/get-regex-matches (pattern text)
+  "Return all matches for PATTERN in TEXT as a list of strings."
+  (when (and (stringp pattern) (stringp text))
+    (let ((start-pos 0)
+          (matches '()))
+      (while (string-match pattern text start-pos)
+        (push (match-string 0 text) matches)
+        (setq start-pos (match-end 0)))
+      (nreverse matches))))
+
+
+(defun ej/parse-paths (prev-output)
+  "Extract existing file paths from a Python traceback string PREV-OUTPUT."
+  (let* ((paths-candidates (ej/get-regex-matches "/[-a-z0-9/.]+" prev-output))
+         (paths (-filter #'file-exists-p paths-candidates))
+         (res paths)
+         ) res))
+
 (defun ej/suggest-context-commands ()
   (interactive)
   (let* ((prev-output (ej/get-previous-cmd-output))
@@ -110,7 +128,9 @@
                     (ej/parse-commands-from-history prev-output)
                     (ej/parse-push-commands prev-output)
                     (ej/parse-updating prev-output)
+                    (ej/parse-paths prev-output)
                     ))
+         ;; (_ (message "collected commands: %S" commands))
          (commands-cut (seq-subseq commands 0 (min (length commands) ej/max-commands)))
          (hydra (ej/make-hydra-from-lines commands-cut))
          )
@@ -231,12 +251,12 @@
               (comint-previous-prompt 1)
               (forward-line 1))
             (end-of-line)
-            (thing-at-point 'existing-filename)))
+            (thing-at-point 'filename)))
          ) fpath))
 
 (defun ej/cd-dir-from-stdout (&optional firstp)
   (let* ((fpath (ej/get-fpath firstp))
-         (dir (if (file-directory-p fpath) fpath (file-name-directory fpath))))
+         (dir (if (f-file-p fpath) (file-name-directory fpath) fpath)))
     (insert (format "cd %s" dir))
     (comint-send-input)))
 
@@ -263,8 +283,9 @@
          (src-dir-maybe (format "src/%s" module-name))
          (src-dir (if (file-exists-p src-dir-maybe) src-dir-maybe "src"))
          )
+    (dired-insert-subdir src-dir)
     (dired-insert-subdir "tests")
-    (dired-insert-subdir src-dir)))
+    ))
 
 ;; dired
 (defhydra ej/dired-interactive (:exit t :columns 1)
@@ -273,6 +294,7 @@
   ("t" ej/toggle-empty-dir-file "toggle empty dir <-> file")
   ("i" dired-insert-subdir "dired-insert-subdir")
   ("l" ej/insert-src-and-tests-subdirs "dired-insert-subdir: tests, src")
+  ("r" projectile-ripgrep "projectile-ripgrep")
   )
 
 (defun ej/dired-hook ()

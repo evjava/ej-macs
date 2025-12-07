@@ -190,17 +190,24 @@
   (add-hook 'dired-mode-hook 'org-download-enable)
   )
 
+(defhydra ej/org-interactive (:exit t :columns 1)
+  " ORG commands "
+  ("t" visual-line-mode "visual-line-mode")
+  ("w" ej/wrap-src-interactive "wrap-src-interactive")
+  ("s-j" org-transclusion-add "org-transclusion-add")
+  )
+
 (defun ej/org-hook ()
   ;; don't need margins after new-line
   (electric-indent-local-mode -1)
   (visual-line-mode 1)
 
-  (local-set-key (kbd "s-t") 'visual-line-mode)
   (local-set-key (kbd "<C-return>") 'ej/add-line-item)
   (local-set-key (kbd "<C-S-return>") 'ej/add-line-item-reverse)
   (local-set-key (kbd "C-c s-w") 'ej/wrap-src-interactive)
   (local-set-key (kbd "C-M-x") 'eval-defun)
   (local-set-key (kbd "M-s-b") 'ej/boldify)
+  (local-set-key (kbd "s-j") 'ej/org-interactive/body)
   )
 (add-hook 'org-mode-hook 'ej/org-hook)
 

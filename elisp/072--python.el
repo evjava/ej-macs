@@ -40,7 +40,9 @@
 (defun ej/get-ruff-command (fname)
   (let* ((ruff (ej/locate-ruff))
          (cmd (format "%s check --output-format json %s" ruff fname))
-         ) cmd))
+         )
+    (message "Ruff command: %s" cmd)
+    cmd))
 
 (defun ej/postfix-f401 (ruff-json)
   " filtering all F401 ( import-error ) if other errors present "

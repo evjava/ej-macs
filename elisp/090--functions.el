@@ -104,6 +104,7 @@
   (16 . "[%Y-%m-%d %a]")
   (17  . "%d.%m.%y-%H:%M")
   (18  . ((lambda (time) (time-subtract time (seconds-to-time (* 3 3600)))) . "%Y-%m-%dT%H:%M:%SZ"))
+  (19 . "%Y-%m-%d--%H-%M-%S")
   ))
 
 (setq TIME-FORMAT-DEFAULT "%H:%M")
@@ -138,7 +139,7 @@
     (list (format "\t\t%s" key) `(insert ,time) time)))
 
 (defun ej/time-hydra-sexp ()
-  (let* ((num-ch-subs '((10 . "a") (11 . "b") (16 . "s") (17 . "k") (18 . "l")))
+  (let* ((num-ch-subs '((10 . "a") (11 . "b") (16 . "s") (17 . "k") (18 . "l") (19 . "f")))
          (hydra-time-formats (cl-sublis num-ch-subs TIME-FORMATS))
          (time (current-time))
          (sexp (--map (ej/time-to-hydra-time it time) hydra-time-formats))
@@ -194,7 +195,9 @@ C-u 0 M-x enumerate-rectangle"
   (pcase arg-type
    (:pos (goto-char arg-val))
    (:line (goto-line arg-val))
-   (:str (progn (goto-char 0) (search-forward arg-val))))
+   (:str (progn (goto-char 0) (search-forward arg-val)))
+   (:find (progn (goto-char 0) (search-forward arg-val)))
+  )
   (end-of-line))
 
 (defalias 'g 'ej/find-file-goto-line)
@@ -233,29 +236,49 @@ C-u 0 M-x enumerate-rectangle"
       (beginning-of-buffer)
       (search-forward nth-edited))))
 
-(setq tmp-name1 "/tmp/from-emacs-1")
-(setq tmp-name2 "/tmp/from-emacs-2")
-(setq tmp-name3-diff "/tmp/from-emacs-3.diff")
-(setq tmp-name3-wdiff "/tmp/from-emacs-3.wdiff")
+(setq tmp-path1 "/tmp/from-emacs-1")
+(setq tmp-path2 "/tmp/from-emacs-2")
+(setq tmp-path3-diff "/tmp/from-emacs-3.diff")
+(setq tmp-path3-wdiff "/tmp/from-emacs-3.wdiff")
 
 (defun ej/diff-helper (command fname-out)
   "19:00 - 19:11"
   (interactive)
-  (delete-file-quite tmp-name1)
-  (delete-file-quite tmp-name2)
+  (delete-file-quite tmp-path1)
+  (delete-file-quite tmp-path2)
   (save-excursion
     (let ((point-a (point))
           (_ (exchange-point-and-mark))
           (point-b (point)))
-      (write-region point-a point-b tmp-name1 t)))
-  (write-region (current-kill 0) nil tmp-name2 'append)
-  (shell-command (format "%s %s %s > %s" command tmp-name2 tmp-name1 fname-out))
+      (write-region point-a point-b tmp-path1 t)))
+  (write-region (current-kill 0) nil tmp-path2 'append)
+  (shell-command (format "%s %s %s > %s" command tmp-path2 tmp-path1 fname-out))
   (g fname-out))
 
 (defun ej/diff ()
   (interactive)
-  (ej/diff-helper "diff" tmp-name3-diff))
-(global-set-key (kbd "C-M-=") #'ej/diff)
+  (ej/diff-helper "diff" tmp-path3-diff))
+
+(defun ej/buffer-content-on-path (tmp-path)
+  (if buffer-file-name buffer-file-name
+    (write-region (point-min) (point-max) tmp-path)
+    tmp-path))
+
+(defun ej/diff-simple ()
+  (interactive)
+  (delete-file-quite tmp-path1)
+  (delete-file-quite tmp-path2)
+  (let* ((fp-2 (ej/buffer-content-on-path tmp-path2))
+         (_ (other-window 1))
+         (fp-1 (ej/buffer-content-on-path tmp-path1))
+         (_ (other-window -1))
+         (cmd (format "%s %s %s > %s" "diff" tmp-path2 tmp-path1 tmp-path3-diff))
+         (_ (shell-command cmd))
+         (diff-size (ediff-file-size tmp-path3-diff)))
+    (if (= 0 diff-size)
+        (message "Same contents")
+      (g tmp-path3-diff))))
+(global-set-key (kbd "C-M-=") #'ej/diff-simple)
 
 (defun ej/patch-wdiff (regexp color)
   (beginning-of-buffer)
@@ -271,7 +294,7 @@ C-u 0 M-x enumerate-rectangle"
 
 (defun ej/wdiff ()
   (interactive)
-  (ej/diff-helper "wdiff" tmp-name3-wdiff)
+  (ej/diff-helper "wdiff" tmp-path3-wdiff)
   (ej/colorize-wdiff))
 
 (require 'grep)

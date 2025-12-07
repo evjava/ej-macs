@@ -59,11 +59,13 @@
       (dyno-maybe-reload))))
     
 (defun is-dyno-file ()
-  (let* ((b-fname (file-name-nondirectory (buffer-file-name)))
-         (is-ok (and
-                 (s-starts-with? *cur-dyno-file-pref* b-fname)
-                 (s-ends-with? *cur-dyno-file-suf* b-fname)))
-         ) is-ok))
+  (let* ((b-fpath (buffer-file-name)))
+    (if (null b-fpath) nil
+      (let* ((b-fname (file-name-nondirectory (buffer-file-name)))
+             (is-ok (and
+                     (s-starts-with? *cur-dyno-file-pref* b-fname)
+                     (s-ends-with? *cur-dyno-file-suf* b-fname)))
+             ) is-ok))))
 
 (defun dyno-check-pref-and-drop (line pref)
   (unless (s-starts-with? pref line)

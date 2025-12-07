@@ -47,6 +47,16 @@
   (use-package helm-system-packages :defer t)
   (use-package helm-org-rifle :defer t)
   (use-package helm-rg :defer t)
+
+  (defun ej/helm-copy-selection (sel)
+    (kill-new (format "%S" sel)))
+  (with-eval-after-load 'helm-types
+    (setf
+     (alist-get
+      "Copy name as kill"
+      helm-type-function-actions nil nil #'string=)
+     #'ej/helm-copy-selection
+     helm-type-command-actions helm-type-function-actions))
   )
 (require 'helm)
 
