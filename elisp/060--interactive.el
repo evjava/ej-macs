@@ -295,6 +295,7 @@
   ("i" dired-insert-subdir "dired-insert-subdir")
   ("l" ej/insert-src-and-tests-subdirs "dired-insert-subdir: tests, src")
   ("r" projectile-ripgrep "projectile-ripgrep")
+  ("RET" ej/open-in-external-app-dired "open in external")
   )
 
 (defun ej/dired-hook ()
