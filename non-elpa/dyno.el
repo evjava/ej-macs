@@ -105,7 +105,7 @@
       (delete-region (point) (point-max))
       (dyno-message "ss: %s" search-state)
       (when (not (equal *dyno-search-state-empty* search-state))
-        (let* ((backend-res (funcall dyno-search-notes-backend search-state)))
+        (let* ((backend-res (funcall dyno-search-items-backend search-state)))
           (message "length(backend-res): %d" (length backend-res))
           (insert "\n")
           (insert backend-res)
@@ -136,10 +136,8 @@
          (id (substring id-full 4))
          ) id))
 
-;; todo fix: `1/notes` should not be mentioned here!
-;; should be also extracted!
 (defun dyno-file-and-position (id)
-  (let* ((cmd (format "grep -rn 'identity: %s' /home/j/1/notes" (s-replace "$" "\\$" id)))
+  (let* ((cmd (format "grep -rn 'identity: %s' %s" (s-replace "$" "\\$" id) org-directory))
          (cmd-out (shell-command-to-string cmd)))
     (when cmd-out
       (let* ((parts (s-split ":" cmd-out))
@@ -178,7 +176,9 @@
 
 (defun dyno-reload-dynamic-buffers ()
   (let* ((buffers (buffer-list))
-         (f-buffers (-filter #'dyno-is-dynamic-buffer buffers)))
+         (f-buffers (-filter #'dyno-is-dynamic-buffer buffers))
+         )
+    (message "Going to reload buffers: %s" f-buffers)
     (cl-loop
      for buf in f-buffers
      do (with-current-buffer buf
@@ -191,7 +191,7 @@
 
 ;; dummy
 
-(defun dyno-search-notes--dummy (search-state)
+(defun dyno-search-items--dummy (search-state)
   (let* ((res-fmt "Backend not installed!\nSearch-state: %S")
          (res (format res-fmt search-state))
          ) res))
@@ -206,7 +206,7 @@
          ) res))
 
 
-(defun dyno-search-notes-example (search-state)
+(defun dyno-search-items-example (search-state)
   (let* ((org-items (cl-loop
                      with search = (plist-get search-state :search)
                      for i from 1 to 10
@@ -218,7 +218,7 @@
          ) res))
 
 ;; dummy functions, should be redefined
-(setq dyno-search-notes-backend #'dyno-search-notes--dummy)
+(setq dyno-search-items-backend #'dyno-search-items--dummy)
 (setq dyno-reload-backend #'dyno-reload-backend--dummy)
 (setq dyno-suggest-tags-backend #'dyno-suggest-tags-backend--dummy)
 
