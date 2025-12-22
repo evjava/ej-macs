@@ -205,6 +205,28 @@
   (defun init:protobuf-mode-hook ()
     (c-add-style "init-protobuf-style" init:protobuf-style t)))
 
+(defun ej/is-top-level-command ()
+  (save-excursion
+    (goto-char (- (point) 2))
+    (equal (thing-at-point 'char) "$")))
+
+(defun ej/current-command ()
+  (save-excursion
+    (beginning-of-line)
+    (buffer-substring-no-properties (point) (line-end-position))))
+
+(defun ej/find-top-level-previous-command ()
+  "Find previous comint input whose prompt prefix ends with `$`."
+  (interactive)
+  (let ((found nil))
+    (save-excursion
+      (while (not found)
+        (ignore-errors (comint-previous-prompt 1) t)
+        (message "pizda %s %s <<%s>>" (ej/is-top-level-command) (ej/current-command) (thing-at-point 'line))
+        (when (ej/is-top-level-command)
+          (setq found (ej/current-command))))
+      found)))
+
 (defun ej/run-other-window ()
   (interactive)
   (save-buffer)
@@ -213,12 +235,12 @@
     (if (not (equal major-mode 'shell-mode))
         (message "Other window isn't shell!")
       (goto-char (point-max))
-      (while (ej/is-inside-program)
-        (comint-send-eof)
-        (sit-for 0.8))
-      (if (not is-py) (comint-previous-input 1)
-        (while (ej/is-not-interesting-command)
-          (comint-previous-input 1)))
+
+      (cond
+       ((ej/is-inside-program) (progn
+                                 (comint-kill-subjob)
+                                 (insert (ej/find-top-level-previous-command))))
+       (t (comint-previous-input 1)))
       (comint-send-input)
       (other-window -1))))
 (global-set-key (kbd "<C-M-return>") 'ej/run-other-window)
