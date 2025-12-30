@@ -1,25 +1,32 @@
 ;;;; dyno ~ dynamic-org
 
-(defvar *dyno-path* nil
-  "Path to dynamic org-files"
-  )
+(require 'timeout)
 
+;;; dyno-vars
+
+(defvar *dyno-path* nil "Path to dynamic org-files")
 (setq *cur-dyno-file-pref* "dyno-")
 (setq *cur-dyno-file-suf* ".org")
-(setq *cur-dyno-header-suf* "----------")
+(setq *cur-dyno-header-suf* "# ─────────────")
 (setq *dyno-last-searches-alist* nil)
-(setq *dyno-search-state-empty* (list :search "" :search-tags '()))
 (setq *dyno-log-enabled* t)
+(setq *dyno-write-logs-to-file* nil)
+(setq *dyno-debounce* 0.2)
+(defvar *dyno-reload-timer* nil "Timer for debouncing the reload function.")
 
-(defun dyno-replace-sexp-at-point (new-sexp)
-  (dyno-message "new-sexp: %s" new-sexp)
-  (when (dyno-string-at-point)
-    (backward-kill-sexp))
-  (insert new-sexp))
+;;; dyno-misc
 
 (defun dyno-message (format-string &rest args)
   (when *dyno-log-enabled*
-    (apply #'message (cons format-string args))))
+    (if (null *dyno-write-logs-to-file*)
+        (apply #'message (cons format-string args))
+      (let* ((log (apply #'format (cons format-string args))))
+        (with-temp-buffer
+          (insert log)
+          (insert "\n")
+          (write-region (point-min) (point-max) *dyno-write-logs-to-file* 'append))))))
+
+;;; dyno-files
 
 (defun dyno-count ()
 	(condition-case err
@@ -36,17 +43,18 @@
 				 (long-fname (concat *dyno-path* "/" short-fname)))
 		long-fname))
 
+;;; dyno-sync
+
 (defun dyno-connect-session ()
   (interactive)
   (unless (is-dyno-file)
     (error (format "Not dyno file: %s" (buffer-file-name))))
-  (let* ((ss (or (dyno-search-state-read-buf) *dyno-search-state-empty*)))
+  (let* ((ss (or (dyno-search-state-read-buf) dyno-search-state-empty)))
+    (dyno-message "Found search-state: %s" ss)
     (remove-hook 'after-change-functions 'dyno-maybe-reload)
     (erase-buffer)
-    (insert (dyno-search-state-serialize ss))
-    (goto-line 1)
-    (end-of-line)
-    (add-hook 'after-change-functions 'dyno-maybe-reload nil t)
+    (insert (format "%s\n%s" ss *cur-dyno-header-suf*))
+    (add-hook 'after-change-functions 'dyno-maybe-reload-debounced nil t)
     (dyno-maybe-reload)
     (dyno-message "Connected to %s" (buffer-file-name))))
 
@@ -72,60 +80,107 @@
     (error "Malformed line in search-state-buf: expected pref: \"%s\", found: \"%s\"" pref line))
   (substring line (length pref)))
 
-(defun dyno-search-state-parse (search-state-str)
-  (let* ((lines (s-split "\n" search-state-str))
-         (cd-search      (dyno-check-pref-and-drop (elt lines 0) "# search: "))
-         (cd-search-tags-str (dyno-check-pref-and-drop (elt lines 1) "# search-tags: "))
-         (cd-search-tags (-map #'s-trim (s-split "," cd-search-tags-str)))
-         (_ (unless (equal (elt lines 2) *cur-dyno-header-suf*) (error "malformed search-state-buf-suf: %s" (elt lines 2))))
-         (res (list :search cd-search :search-tags cd-search-tags))) res))
-
 (defun dyno-search-state-read-buf ()
+  (dyno-message "#dyno-search-state-read-buf")
   (condition-case nil
       (save-excursion
-        (beginning-of-buffer)
+        (goto-char (point-min))
         (search-forward *cur-dyno-header-suf*)
-        (let* ((search-state-buf (buffer-substring-no-properties 1 (point)))
-               (_ (format "buf::::::" search-state-buf))
-               (search-state (dyno-search-state-parse search-state-buf))
-               ) search-state))
-    (error nil)))
+        (let* ((search-state-end (- (point) (length *cur-dyno-header-suf*)))
+               (search-state (s-trim (buffer-substring-no-properties 1 search-state-end))))
+          (message "search-state: %s" search-state)
+          search-state))
+        (error nil)))
 
-(defun dyno-search-state-serialize (search-state)
-  (format "# search: %s\n# search-tags: %s\n%s"
-          (plist-get search-state :search)
-          (s-join ", " (plist-get search-state :search-tags))
-          *cur-dyno-header-suf*))
-
-(defun dyno-reload-inner (search-state pos)
+(defun dyno-get-out-start ()
   (save-excursion
     (goto-char (point-min))
-    (search-forward *cur-dyno-header-suf*)
-    (when (< pos (point))
-      (delete-region (point) (point-max))
-      (dyno-message "ss: %s" search-state)
-      (when (not (equal *dyno-search-state-empty* search-state))
-        (let* ((backend-res (funcall dyno-search-items-backend search-state)))
-          (message "length(backend-res): %d" (length backend-res))
-          (insert "\n")
-          (insert backend-res)
-          (save-buffer))))))
+    (condition-case nil
+        (when (search-forward *cur-dyno-header-suf* nil t)
+          (let* ((pos (match-end 0)))
+            (dyno-message "#dyno-get-out-start, position -> %d" pos)
+            pos))
+      (error nil))))
+  
+
+(defun dyno-reload-inner (search-state pos)
+  (dyno-message "#dyno-reload-inner <%s> <%d>" search-state pos)
+  (let* ((match-pos (dyno-get-out-start)))
+    (if (null match-pos)
+       (progn
+         (dyno-message "Not found header...")
+         (erase-buffer)
+         (insert dyno-search-state-empty)
+         (insert "\n")
+         (insert *cur-dyno-header-suf*))
+      (save-excursion
+        (dyno-message "Going to update generated org part")
+        (goto-char (point-min))
+        (when (search-forward *cur-dyno-header-suf* nil t)
+          (when (or (null pos) (<= pos match-pos))
+            (delete-region match-pos (point-max))
+            (dyno-message "search-state: %s" search-state)
+            (when (not (equal dyno-search-state-empty search-state))
+              (let* ((start-time (float-time (current-time)))
+                     (backend-res (funcall dyno-search-items-backend search-state))
+                     (end-time (float-time (current-time)))
+                     (elapsed-time (- end-time start-time))
+                     )
+                (dyno-message "length(backend-res): %d, ready in %.6f seconds" (length backend-res) elapsed-time)
+                (insert "\n")
+                (insert backend-res)
+                (save-buffer)))))))))
+      
+
+(defun dyno-maybe-reload-debounced (&optional beg end smth)
+  (interactive)
+  (dyno-message "(#dyno-maybe-reload-debounced %s %s %s)" beg end smth)
+  (when *dyno-reload-timer*
+    (cancel-timer *dyno-reload-timer*))
+  (setq *dyno-reload-timer* (run-at-time *dyno-debounce* nil 'dyno-maybe-reload beg end smth))
+  )
 
 (defun dyno-maybe-reload (&optional beg end smth)
   (interactive)
+  (when *dyno-reload-timer*
+    (cancel-timer *dyno-reload-timer*))
   (dyno-message "(#dyno-maybe-reload %s %s %s)" beg end smth)
   (dyno-message "inhibit-modification-hooks: %s" inhibit-modification-hooks)
   (let* ((old-search-state (plist-get *dyno-last-searches-alist* (buffer-file-name)))
-         (cur-search-state (or (dyno-search-state-read-buf) *dyno-search-state-empty*)))
+         (cur-search-state (or (dyno-search-state-read-buf) dyno-search-state-empty)))
     (dyno-message "old-search: %s" old-search-state)
     (dyno-message "cur-search: %s" cur-search-state)
     (when (or (null old-search-state) (not (equal old-search-state cur-search-state)))
       (plist-put *dyno-last-searches-alist* (buffer-file-name) cur-search-state)
-      (dyno-reload-inner cur-search-state (or end (point))))))
+      (dyno-reload-inner cur-search-state (or end (point)))))
+  )
          
-(defun dyno-string-at-point ()
-  (when (looking-at "[\s\n]")
-    (sexp-at-point)))
+(defun dyno-is-dynamic-buffer (buffer)
+  (let* ((b-name (buffer-file-name buffer))
+         (res (and
+               (stringp b-name)
+               (s-contains? "/dyno-" b-name)
+               (s-ends-with? ".org" b-name))
+              )
+         ) res))
+
+(defun dyno-reload-dynamic-buffers ()
+  (let* ((buffers (buffer-list))
+         (f-buffers (-filter #'dyno-is-dynamic-buffer buffers))
+         )
+    (message "Going to reload buffers: %s" f-buffers)
+    (cl-loop
+     for buf in f-buffers
+     do (with-current-buffer buf
+          (dyno-maybe-reload)))))
+
+(defun dyno-reload ()
+  (interactive)
+  (funcall dyno-reload-backend)
+  (message "reloaded!")
+  (dyno-reload-dynamic-buffers))
+
+;;; dyno-actions
 
 ;; todo fix: how to make this function more universal? Customizable or something... 
 (defun dyno-parse-identity-at-point ()
@@ -144,6 +199,16 @@
              (fname (car parts))
              (line (string-to-number (cadr parts))))
         (cons fname line)))))
+
+(defun dyno-string-at-point ()
+  (when (looking-at "[\s\n]")
+    (sexp-at-point)))
+
+(defun dyno-replace-sexp-at-point (new-sexp)
+  (dyno-message "new-sexp: %s" new-sexp)
+  (when (dyno-string-at-point)
+    (backward-kill-sexp))
+  (insert new-sexp))
 
 (defun dyno-context-action ()
   (interactive)
@@ -169,27 +234,7 @@
      (t (message "No context actions available")))
     ))
 
-(defun dyno-is-dynamic-buffer (buffer)
-  (let* ((b-name (buffer-file-name buffer))
-         (res (and (stringp b-name) (s-contains? "/dyno-" b-name)))
-         ) res))
-
-(defun dyno-reload-dynamic-buffers ()
-  (let* ((buffers (buffer-list))
-         (f-buffers (-filter #'dyno-is-dynamic-buffer buffers))
-         )
-    (message "Going to reload buffers: %s" f-buffers)
-    (cl-loop
-     for buf in f-buffers
-     do (with-current-buffer buf
-          (ej/reopen)))))
-
-(defun dyno-reload ()
-  (interactive)
-  (funcall dyno-reload-backend)
-  (dyno-reload-dynamic-buffers))
-
-;; dummy
+;; dyno-dummy
 
 (defun dyno-search-items--dummy (search-state)
   (let* ((res-fmt "Backend not installed!\nSearch-state: %S")
@@ -208,18 +253,22 @@
 
 (defun dyno-search-items-example (search-state)
   (let* ((org-items (cl-loop
-                     with search = (plist-get search-state :search)
+                     with text = search-state
                      for i from 1 to 10
-                     for org-title = (format "%s: %s" search i)
+                     for org-title = (format "%s: %s" text i)
                      for org-text = (format "text... %s" i)
                      for org-item = (format "** %s\ndate: 15.11.22\nbla-bla-bla%s" org-title org-text)
                      collect org-item))
          (res (s-join "\n" org-items))
          ) res))
 
+(setq dyno-search-state-empty--dummy "# search: ")
+
 ;; dummy functions, should be redefined
 (setq dyno-search-items-backend #'dyno-search-items--dummy)
+;; (setq dyno-search-items-backend #'dyno-search-items-example)
 (setq dyno-reload-backend #'dyno-reload-backend--dummy)
+(setq dyno-search-state-empty dyno-search-state-empty--dummy)
 (setq dyno-suggest-tags-backend #'dyno-suggest-tags-backend--dummy)
 
 (provide 'dyno)

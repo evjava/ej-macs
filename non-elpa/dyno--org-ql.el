@@ -16,7 +16,7 @@
                           (s-split " " search-t)))
          ) search-tokens))
 
-(defun dyno-make-notes-query (search-state)
+(defun dyno-make-items-query (search-state)
   " pure "
   (let* ((search (plist-get search-state :search))
          (search-tokens (parse-tokens-from-search search))
@@ -33,7 +33,7 @@
          ) query))
 
 (cl-assert (equal
-         (dyno-make-notes-query '(:search "abc defg" :search-tags ("tag1" "tag22")))
+         (dyno-make-items-query '(:search "abc defg" :search-tags ("tag1" "tag22")))
          '(and (regexp "tags:.*tag22") (regexp "tags:.*tag1") (regexp "defg") (regexp "abc"))))
 
 (defun dyno-get-cur-paths ()
@@ -47,12 +47,12 @@
     :from (dyno-get-cur-paths)
     :where query))
 
-(defun dyno-search-notes-backend--org-ql--inner (search-state)
+(defun dyno-search-items-backend--org-ql--inner (search-state)
   (let* ((search (plist-get search-state :search))
          (tags (plist-get search-state :search-tags))
          (res-p (cond
                  ((equal search ":all")
-                  (let* ((query (dyno-make-notes-query search-state))
+                  (let* ((query (dyno-make-items-query search-state))
                          (elements (dyno-org-ql-wrapped query)))
                     (list
                      :header (format "Total: %d" (length elements))
@@ -68,7 +68,7 @@
                   '(:header "Empty input..."))
                  
                  (t
-                  (let* ((query (dyno-make-notes-query search-state))
+                  (let* ((query (dyno-make-items-query search-state))
                          (elements (dyno-org-ql-wrapped query)))
                     (list
                      :header (format "Total: %d" (length elements))
@@ -76,12 +76,12 @@
                  ))
          ) res-p))
 
-;; (plist-get (dyno-search-notes-backend--org-ql--inner '(:search "" :search-tags ("python"))) :header)
-;; (dyno-search-notes-backend--org-ql '(:search "" :search-tags ("python")))
+;; (plist-get (dyno-search-items-backend--org-ql--inner '(:search "" :search-tags ("python"))) :header)
+;; (dyno-search-items-backend--org-ql '(:search "" :search-tags ("python")))
 
-(defun dyno-search-notes-backend--org-ql (search-state)
+(defun dyno-search-items-backend--org-ql (search-state)
   (message "here: %S" search-state)
-  (let* ((res-p (dyno-search-notes-backend--org-ql--inner search-state))
+  (let* ((res-p (dyno-search-items-backend--org-ql--inner search-state))
          (_ (message "Header: %S" (plist-get res-p :header)))
          (res (s-trim
                (s-join
