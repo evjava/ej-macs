@@ -186,10 +186,6 @@
   (add-to-list 'auto-mode-alist '("\\Dockerfile.*$" . dockerfile-mode))
 )
 
-(use-package docker
-  :ensure t
-  :bind ("C-c d" . docker))
-
 (use-package markdown-mode
   :config
   (setq markdown-fontify-code-blocks-natively t)

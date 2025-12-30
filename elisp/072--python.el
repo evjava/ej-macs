@@ -214,12 +214,11 @@
   (let* ((fpath buffer-file-name)
          (ruff (ej/locate-ruff))
          ;; todo fix
-         (autoimport-config-file "/home/tagin/1/pyproject.toml")
          (pre-commands (list
                         (format "%s check --fix" ruff)
                         (format "%s format" ruff)
                         ;; https://lyz-code.github.io/autoimport/
-                        (format "autoimport --config-file %s" autoimport-config-file)
+                        (format "autoimport --config-file %s" autoimport-config-path)
                         ;; todo fix
                         (format "%s format" ruff)
                         (format "%s check --select I --fix" ruff)
@@ -345,3 +344,55 @@
           (next-line)))
       (other-window -1))))
 
+(defun ej/parse-filepath-and-line (input-string)
+  "Parse the file path and line number from the INPUT-STRING.
+The expected format is 'File ./path/to/file., line N, in function'."
+  (let ((regex "File \"\\([^\"]+\\)\", line \\([0-9]+\\)"))
+    (when (string-match regex input-string)
+      (let ((file (match-string 1 input-string))
+            (line (match-string 2 input-string)))
+        (list file (string-to-number line))))))
+
+;; todo fix: generalize to any file
+(defvar ej--last-line-pos nil "remembered last line")
+(defvar ej--line-to-copy nil "todo fix")
+
+(defun ej/goto-line (ln)
+  (goto-char (point-min))
+  (forward-line ln))
+
+(defun ej/goto-error-line-from-traceback-in-other-window ()
+  "Navigate to the error line indicated in the traceback, in another window."
+  (interactive)
+  (let ((current-window (selected-window)))
+    (other-window 1)
+    (setq ej--line-to-copy nil)
+      (save-excursion
+        (if (not (eq last-command 'ej/goto-error-line-from-traceback-in-other-window))
+            (setq ej--last-line-pos nil)
+          (if (null ej--last-line-pos)
+              (goto-char (point-max))  ; Start searching from the end of the buffer
+            (ej/goto-line (1- ej--last-line-pos)))
+          (message "Continuation of search at %d" ej--last-line-pos)
+          )
+
+        
+        (if (search-backward "File " nil t)
+            (progn
+              (setq
+               ej--line-to-copy
+               (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+              (message "Copied line: %s" ej--line-to-copy)
+              (setq ej--last-line-pos (line-number-at-pos))))
+
+        ;; (message "No traceback error line found.")
+        )
+      
+      (select-window current-window)
+      (let* ((fpath-line (ej/parse-filepath-and-line ej--line-to-copy))
+             (fpath (car fpath-line))
+             (line (cadr fpath-line)))
+        (ej/find-file-goto-line fpath :line line)
+        (recenter-top-bottom))))
+
+(global-set-key (kbd "C-s-e") #'ej/goto-error-line-from-traceback-in-other-window)
