@@ -34,12 +34,14 @@
   (setq doom-modeline-height 4)
   (doom-modeline-mode 1)
 )
-(use-package nerd-icons
-  :if (display-graphic-p)
-  :config
-  (let* ((nerd-fonts-path (expand-file-name "~/.local/share/fonts/NFM.ttf")))
-    (unless (file-exists-p nerd-fonts-path)
-      (nerd-icons-install-fonts 'yes))))
+
+;; temporarily commented: don't work for some reason
+;; (use-package nerd-icons
+;;   :if (display-graphic-p)
+;;   :config
+;;   (let* ((nerd-fonts-path (expand-file-name "~/.local/share/fonts/NFM.ttf")))
+;;     (unless (file-exists-p nerd-fonts-path)
+;;       (nerd-icons-install-fonts 'yes))))
 
 (use-package visual-regexp
   :bind
