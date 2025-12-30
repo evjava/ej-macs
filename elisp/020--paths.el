@@ -49,3 +49,5 @@
 
 (setq private-emacs-config-dir "~/.emacs.d.private")
 (load-ignore-error (expand-file-name "private-paths.el" private-emacs-config-dir))
+
+(defvar mcp-el-load-path nil "mcp.el load path")
