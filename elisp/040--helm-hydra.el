@@ -11,14 +11,12 @@
   (helm-mode 1)
   (global-unset-key (kbd "C-x c"))
   (setq 
-  ;;  helm-split-window-in-side-p           t ; open helm buffer inside current window, not occupy whole other window
-  ;;  helm-move-to-line-cycle-in-source     t ; move to end or beginning of source when reaching top or bottom of source.
-  ;;  helm-ff-search-library-in-sexp        t ; search for library in `require' and `declare-function' sexp.
-  ;;  helm-scroll-amount                    20 ; scroll 8 lines other window using M-<next>/M-<prior>
-  ;;  helm-ff-file-name-history-use-recentf t
-  ;;  helm-echo-input-in-header-line t
-  ;;  helm-autoresize-min-height 20
-  ;;  helm-autoresize-max-height 40
+   helm-move-to-line-cycle-in-source     t ; move to end or beginning of source when reaching top or bottom of source.
+   helm-ff-search-library-in-sexp        t ; search for library in `require' and `declare-function' sexp.
+   helm-scroll-amount                    20 ; scroll 8 lines other window using M-<next>/M-<prior>
+   helm-echo-input-in-header-line t ; Send current input to header-line when non-nil.
+   helm-autoresize-min-height 20
+   helm-autoresize-max-height 40
   )
 
   (setq
@@ -32,14 +30,17 @@
    helm-lisp-fuzzy-completion t
    helm-completion-in-region-fuzzy-match t
    )
-  ;; 
-  ;; (when (executable-find "curl") (setq helm-google-suggest-use-curl-p t))
-  ;; (helm-autoresize-mode 1)
-;; 
-  ;; (setq helm-mini-default-sources '(helm-source-buffers-list
-  ;;                                 helm-source-recentf
-  ;;                                 helm-source-bookmarks
-  ;;                                 helm-source-buffer-not-found))
+
+  (when (executable-find "curl") (setq helm-google-suggest-use-curl-p t))
+  (helm-autoresize-mode 1)
+
+  (setq
+   helm-mini-default-sources
+   '(helm-source-buffers-list
+     helm-source-recentf
+     helm-source-bookmarks
+     helm-source-buffer-not-found))
+
   ;; (use-package helm-projectile :bind ("s-p h" . 'helm-projectile))
   ;; (use-package helm-swoop :defer t :bind ("C-c C-g" . 'helm-swoop))
   ;; (use-package helm-descbinds)

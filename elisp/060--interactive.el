@@ -291,6 +291,7 @@
 (defhydra ej/dired-interactive (:exit t :columns 1)
   " Dired commands "
   ("b" ej/dired-file-name-add-date "add date prefix")
+  ("B" (ej/dired-file-name-add-date "%Y-%m-%d--%H-%M") "add date prefix")
   ("t" ej/toggle-empty-dir-file "toggle empty dir <-> file")
   ("i" dired-insert-subdir "dired-insert-subdir")
   ("l" ej/insert-src-and-tests-subdirs "dired-insert-subdir: tests, src")

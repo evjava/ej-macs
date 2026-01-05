@@ -39,6 +39,7 @@
         indent-for-tab-command
         kill-region
         kmacro-start-macro-or-insert-counter
+        markdown-beginning-of-line
         markdown-end-of-line
         markdown-outdent-or-delete
         mc/vertical-align-with-space

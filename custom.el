@@ -115,7 +115,7 @@
               quelpa-use-package quick-yes rainbow-delimiters
               rainbow-identifiers reazon request reverse-im rg ripgrep
               ruff-format rust-mode s sallet saveplace-pdf-view
-              scroll-on-jump session shx simple-httpd slime
+              scala-mode scroll-on-jump session shx simple-httpd slime
               smartparens smex solidity-mode spinner straight
               sublimity suggest svg-lib swift-mode telega telega-mnz
               telega-stories tex timeout toc-org togetherly transient

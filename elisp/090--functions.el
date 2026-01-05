@@ -945,20 +945,22 @@ same directory as the org-buffer and insert a link to this file."
     (insert "**")))
 
 ;; dired
-(defun ej/dired-file-name-add-date ()
+(defun ej/dired-file-name-add-date (&optional dt-fmt)
   " TODO fix: add query, add revert (maybe?), don't rename already renamed "
   (interactive)
   (let* ((full-name (dired-get-filename))
          (path-name (file-name-directory full-name))
          (short-name (file-name-nondirectory full-name))
          (file-attrs (file-attributes full-name))
-         (dt (format-time-string "%Y-%m-%d" (nth 5 file-attrs)))
-         (upd-short-name (format "%s--%s" dt short-name))
+         (dt (nth 5 file-attrs))
+         (dt-fmt-final (if (null dt-fmt) "%Y-%m-%d" dt-fmt))
+         (dt-pretty (format-time-string dt-fmt-final dt))
+         (upd-short-name (format "%s--%s" dt-pretty short-name))
          (upd-full-name (s-concat path-name upd-short-name)))
     (message "Renamed %s >> %s" short-name upd-short-name)
     (rename-file full-name upd-full-name)
     (revert-buffer)
-    (beginning-of-buffer)
+    (goto-char (point-min))
     (search-forward upd-short-name)))
 
 (defun ej/toggle-empty-dir-file ()
