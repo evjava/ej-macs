@@ -214,7 +214,7 @@
       (setq var-change-layout (not var-change-layout))
       (ej/switch-layout))))
 
-(define-key global-map (kbd "C-s-j") 'ej/insert-latex-section)
+;; (define-key global-map (kbd "C-s-j") 'ej/insert-latex-section)
 
 (unless (boundp 'org-latex-classes)
   (setq org-latex-classes nil))

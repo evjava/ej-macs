@@ -1031,3 +1031,46 @@ same directory as the org-buffer and insert a link to this file."
       (switch-to-buffer (nth ej--tab-buffer-index ej--tab-buffer-ring)))
     ))
 (global-set-key (kbd "C-~") #'ej/tab-through-previous-buffers)
+
+(defun ej/collect-terms-at (bounds)
+  (let* ((beg (car bounds))
+         (end (cdr bounds)))
+    (save-excursion
+      (goto-char beg)
+      (let (acc)
+        (while (re-search-forward "`\\([^`\n]+\\)`" end t)
+          (push (match-string-no-properties 1) acc))
+        (cl-remove-duplicates (nreverse acc) :test #'string=)))))
+
+(defun ej/get-section-start ()
+  (save-excursion
+    (pcase major-mode
+      ('org-mode (org-back-to-heading t))
+      ('markdown-mode (markdown-outline-previous))
+      (_ (forward-line -10)))
+    (point)))
+
+
+(defun ej/suggest-last-terms ()
+  (interactive)
+  (let* ((bounds (cons (ej/get-section-start) (point)))
+         (terms (ej/collect-terms-at bounds))
+         (keys '(?1 ?2 ?3 ?4 ?5 ?6 ?7 ?8 ?9 ?0))
+         (pairs (-zip keys terms))
+         (sexp
+          (--map
+           `(,(format "%c" (car it)) (insert ,(format "`%s`" (cdr it))) ,(cdr it))
+           pairs))
+         (hydra
+          `(defhydra ej/hydra-insert-org-terms
+             (:exit t :columns 1 :foreign-keys warn)
+             "Insert backticked term"
+             ,@sexp
+             ("\t\tq" nil "quit")))
+         )
+    (if terms
+        (call-interactively (eval hydra))
+      (message "No backticked terms in this section."))))
+
+(define-key markdown-mode-map (kbd "C-s-j") #'ej/suggest-last-terms)
+(define-key org-mode-map (kbd "C-s-j") #'ej/suggest-last-terms)
