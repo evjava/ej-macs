@@ -101,7 +101,9 @@
   (9  . "[%Y-%m-%d %a %H:%M]")
   (10  . "resolution(%d.%m.%y-%H:%M): ")
   (11 . "%a <Dec> %d %H:%M:%S %Y")
+  (12  . "[%Y-%m-%d %a %H:%M:%S]")
   (16 . "[%Y-%m-%d %a]")
+  (64 . "[%Y-%m-%d %a %H:%M:%S]")
   (17  . "%d.%m.%y-%H:%M")
   (18  . ((lambda (time) (time-subtract time (seconds-to-time (* 3 3600)))) . "%Y-%m-%dT%H:%M:%SZ"))
   (19 . "%Y-%m-%d--%H-%M-%S")
@@ -139,7 +141,7 @@
     (list (format "\t\t%s" key) `(insert ,time) time)))
 
 (defun ej/time-hydra-sexp ()
-  (let* ((num-ch-subs '((10 . "a") (11 . "b") (16 . "s") (17 . "k") (18 . "l") (19 . "f")))
+  (let* ((num-ch-subs '((10 . "a") (11 . "b") (12 . "c") (16 . "s") (17 . "k") (18 . "l") (19 . "f") (64 . "g")))
          (hydra-time-formats (cl-sublis num-ch-subs TIME-FORMATS))
          (time (current-time))
          (sexp (--map (ej/time-to-hydra-time it time) hydra-time-formats))
@@ -1072,5 +1074,5 @@ same directory as the org-buffer and insert a link to this file."
         (call-interactively (eval hydra))
       (message "No backticked terms in this section."))))
 
-(define-key markdown-mode-map (kbd "C-s-j") #'ej/suggest-last-terms)
-(define-key org-mode-map (kbd "C-s-j") #'ej/suggest-last-terms)
+;; (define-key markdown-mode-map (kbd "C-s-j") #'ej/suggest-last-terms)
+;; (define-key org-mode-map (kbd "C-s-j") #'ej/suggest-last-terms)

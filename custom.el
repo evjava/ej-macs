@@ -85,7 +85,7 @@
               clojure-mode color-theme color-theme-buffer-local
               company company-emojify company-mode company-posframe
               consult dash dashboard devdocs diff-hl difflib
-              dired-atool dired-subtree dirvish djvu docker
+              dired-atool dired-du dired-subtree dirvish djvu docker
               dockerfile-mode doom-modeline dot-mode dracula-theme
               dumb-jump dumb-mode eat edraw-org eglot ein ekg elogcat
               elpy elquery elsa emacsql emacsql-sqlite emms

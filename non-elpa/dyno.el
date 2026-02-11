@@ -11,20 +11,23 @@
 (setq *dyno-last-searches-alist* nil)
 (setq *dyno-log-enabled* t)
 (setq *dyno-write-logs-to-file* nil)
-(setq *dyno-debounce* 0.2)
+(setq *dyno-debounce* 0.3)
 (defvar *dyno-reload-timer* nil "Timer for debouncing the reload function.")
 
 ;;; dyno-misc
 
 (defun dyno-message (format-string &rest args)
   (when *dyno-log-enabled*
-    (if (null *dyno-write-logs-to-file*)
-        (apply #'message (cons format-string args))
-      (let* ((log (apply #'format (cons format-string args))))
-        (with-temp-buffer
-          (insert log)
-          (insert "\n")
-          (write-region (point-min) (point-max) *dyno-write-logs-to-file* 'append))))))
+    (let* ((current-time (format-time-string "[%H:%M.%3N]"))
+           (format-string-t (concat current-time " " format-string))
+           (args (cons format-string-t args)))
+      (if (null *dyno-write-logs-to-file*)
+          (apply #'message args)
+        (let* ((log (apply #'format args)))
+          (with-temp-buffer
+            (insert log)
+            (insert "\n")
+            (write-region (point-min) (point-max) *dyno-write-logs-to-file* 'append)))))))
 
 ;;; dyno-files
 
@@ -45,17 +48,24 @@
 
 ;;; dyno-sync
 
+(defvar dyno--in-connect-session nil "Flag to indicate if we are in the process of connecting a dyno session.")
+
 (defun dyno-connect-session ()
   (interactive)
   (unless (is-dyno-file)
     (error (format "Not dyno file: %s" (buffer-file-name))))
   (let* ((ss (or (dyno-search-state-read-buf) dyno-search-state-empty)))
     (dyno-message "Found search-state: %s" ss)
+    (setq dyno--in-connect-session t)
+
     (remove-hook 'after-change-functions 'dyno-maybe-reload)
     (erase-buffer)
     (insert (format "%s\n%s" ss *cur-dyno-header-suf*))
-    (add-hook 'after-change-functions 'dyno-maybe-reload-debounced nil t)
+
     (dyno-maybe-reload)
+    (add-hook 'after-change-functions 'dyno-maybe-reload-debounced nil t)
+    (setq dyno--in-connect-session nil)
+
     (dyno-message "Connected to %s" (buffer-file-name))))
 
 (defun dyno-create-session ()
@@ -122,7 +132,7 @@
             (dyno-message "search-state: %s" search-state)
             (when (not (equal dyno-search-state-empty search-state))
               (let* ((start-time (float-time (current-time)))
-                     (backend-res (funcall dyno-search-items-backend search-state))
+                     (backend-res (dyno-search-items-backend-safe search-state))
                      (end-time (float-time (current-time)))
                      (elapsed-time (- end-time start-time))
                      )
@@ -131,29 +141,57 @@
                 (insert backend-res)
                 (save-buffer)))))))))
       
+(defun dyno-search-items-backend-safe (search-state)
+  (condition-case err
+      (funcall dyno-search-items-backend search-state)
+    (error
+     (format "Caught error: %s" err))))
 
-(defun dyno-maybe-reload-debounced (&optional beg end smth)
+(defvar dyno--is-reloading nil "Flag to indicate if a reload is in progress.")
+
+(defun dyno-maybe-reload-debounced (beg end smth)
   (interactive)
-  (dyno-message "(#dyno-maybe-reload-debounced %s %s %s)" beg end smth)
   (when *dyno-reload-timer*
     (cancel-timer *dyno-reload-timer*))
-  (setq *dyno-reload-timer* (run-at-time *dyno-debounce* nil 'dyno-maybe-reload beg end smth))
-  )
+  (setq *dyno-reload-timer*
+        (run-at-time *dyno-debounce* nil
+                     (lambda (start end-state something)
+                       (unless dyno--in-connect-session
+                         (unless dyno--is-reloading   ; Check the flag
+                           (setq dyno--is-reloading t) ; Set the flag
+                           (unwind-protect
+                               (dyno-maybe-reload (current-buffer) start end-state something)
+                             (setq dyno--is-reloading nil)))) ; Reset the flag
+                       )
+                     beg end smth)))
 
-(defun dyno-maybe-reload (&optional beg end smth)
+;;(defun dyno-maybe-reload-debounced (&optional beg end smth)
+;;  (interactive)
+;;  (dyno-message "(#dyno-maybe-reload-debounced %s %s %s)" beg end smth)
+;;  (when *dyno-reload-timer*
+;;    (cancel-timer *dyno-reload-timer*))
+;;  (setq *dyno-reload-timer* (run-at-time *dyno-debounce* nil 'dyno-maybe-reload (current-buffer) beg end smth))
+;;  )
+
+(defun dyno-maybe-reload (&optional buffer beg end smth)
+  (unless dyno--in-connect-session
+    (dyno-maybe-reload-in buffer beg end smth)))
+
+(defun dyno-maybe-reload-in (&optional buffer beg end smth)
   (interactive)
   (when *dyno-reload-timer*
     (cancel-timer *dyno-reload-timer*))
-  (dyno-message "(#dyno-maybe-reload %s %s %s)" beg end smth)
-  (dyno-message "inhibit-modification-hooks: %s" inhibit-modification-hooks)
-  (let* ((old-search-state (plist-get *dyno-last-searches-alist* (buffer-file-name)))
-         (cur-search-state (or (dyno-search-state-read-buf) dyno-search-state-empty)))
-    (dyno-message "old-search: %s" old-search-state)
-    (dyno-message "cur-search: %s" cur-search-state)
-    (when (or (null old-search-state) (not (equal old-search-state cur-search-state)))
-      (plist-put *dyno-last-searches-alist* (buffer-file-name) cur-search-state)
-      (dyno-reload-inner cur-search-state (or end (point)))))
-  )
+  (with-current-buffer (or buffer (current-buffer))
+    (dyno-message "(#dyno-maybe-reload buffer %s %s %s)" buffer beg end smth)
+    (dyno-message "inhibit-modification-hooks: %s" inhibit-modification-hooks)
+    (let* ((old-search-state (plist-get *dyno-last-searches-alist* (buffer-file-name)))
+           (cur-search-state (or (dyno-search-state-read-buf) dyno-search-state-empty)))
+      (dyno-message "old-search: %s" old-search-state)
+      (dyno-message "cur-search: %s" cur-search-state)
+      (when (or (null old-search-state) (not (equal old-search-state cur-search-state)))
+        (plist-put *dyno-last-searches-alist* (buffer-file-name) cur-search-state)
+        (dyno-reload-inner cur-search-state (or end (point)))))
+    ))
          
 (defun dyno-is-dynamic-buffer (buffer)
   (let* ((b-name (buffer-file-name buffer))
@@ -262,7 +300,7 @@
          (res (s-join "\n" org-items))
          ) res))
 
-(setq dyno-search-state-empty--dummy "# search: ")
+(setq dyno-search-state-empty--dummy "# q: ")
 
 ;; dummy functions, should be redefined
 (setq dyno-search-items-backend #'dyno-search-items--dummy)
