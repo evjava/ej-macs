@@ -1001,6 +1001,19 @@ same directory as the org-buffer and insert a link to this file."
     (insert selected-path)))
 (global-set-key (kbd "M-s-i") 'ej/insert-path-from-buffers)
 
+(defun ej/switch-to-prev-shell ()
+  (interactive)
+  (-if-let (shell-buffers (ej/get-shell-buffers))
+      (let* ((sorted-shell-buffers (-sort (-on #'< #'extract-int) shell-buffers))
+             (len (length sorted-shell-buffers))
+             (cur-buf (buffer-name))
+             (idx-0 (-elem-index cur-buf sorted-shell-buffers))
+             (idx (or idx-0 0))
+             (next-idx (mod (+ len (1- idx)) len))
+             (next-buf (elt sorted-shell-buffers next-idx)))
+        (switch-to-buffer next-buf))
+    (message "No *shell*<N> buffers found!")))
+
 (defun ej/kill-shells ()
   (interactive)
   (let* ((kill-buffer-query-functions nil))
@@ -1040,7 +1053,7 @@ same directory as the org-buffer and insert a link to this file."
     (save-excursion
       (goto-char beg)
       (let (acc)
-        (while (re-search-forward "`\\([^`\n]+\\)`" end t)
+        (while (re-search-forward "`\\([^>][^`\n]\\{1,20\\}\\)`" end t)
           (push (match-string-no-properties 1) acc))
         (cl-remove-duplicates (nreverse acc) :test #'string=)))))
 
@@ -1061,7 +1074,7 @@ same directory as the org-buffer and insert a link to this file."
          (pairs (-zip keys terms))
          (sexp
           (--map
-           `(,(format "%c" (car it)) (insert ,(format "`%s`" (cdr it))) ,(cdr it))
+           `(,(format "%c" (car it)) (insert ,(format "`%s`" (cdr it))) ,(format "`%s`" (cdr it)))
            pairs))
          (hydra
           `(defhydra ej/hydra-insert-org-terms
@@ -1073,6 +1086,5 @@ same directory as the org-buffer and insert a link to this file."
     (if terms
         (call-interactively (eval hydra))
       (message "No backticked terms in this section."))))
-
 ;; (define-key markdown-mode-map (kbd "C-s-j") #'ej/suggest-last-terms)
 ;; (define-key org-mode-map (kbd "C-s-j") #'ej/suggest-last-terms)

@@ -284,7 +284,8 @@
          (src-dir (if (file-exists-p src-dir-maybe) src-dir-maybe "src"))
          )
     (dired-insert-subdir src-dir)
-    (dired-insert-subdir "tests")
+    (when (file-exists-p "tests")
+      (dired-insert-subdir "tests"))
     ))
 
 ;; dired

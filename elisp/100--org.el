@@ -208,9 +208,18 @@
   (local-set-key (kbd "C-M-x") 'eval-defun)
   (local-set-key (kbd "M-s-b") 'ej/boldify)
   (local-set-key (kbd "s-j") 'ej/org-interactive/body)
+  (local-set-key (kbd "C-s-j") #'ej/suggest-last-terms)
   )
 (add-hook 'org-mode-hook 'ej/org-hook)
 
 (defun ej/activate-org-latex ()
   (interactive)
   (load-el "elisp/101--org-latex.el"))
+
+;;;; Markdown, md
+(use-package markdown-mode
+  :config
+  (setq markdown-fontify-code-blocks-natively t)
+  :bind
+  ("C-x w" . ej/wrap-src-interactive)
+  ("C-s-j" . ej/suggest-last-terms))

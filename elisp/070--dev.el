@@ -186,11 +186,6 @@
   (add-to-list 'auto-mode-alist '("\\Dockerfile.*$" . dockerfile-mode))
 )
 
-(use-package markdown-mode
-  :config
-  (setq markdown-fontify-code-blocks-natively t)
-  :bind ("C-x w" . ej/wrap-src-interactive))
-
 (use-package protobuf-mode
   ;; https://emacs.stackexchange.com/a/82664
   :hook (protobuf-mode . init:protobuf-mode-hook)
