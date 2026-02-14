@@ -72,6 +72,8 @@ If a buffer with that name already exists, ask for confirmation before renaming.
 (define-key shell-mode-map (kbd "C-c s-r") #'ej/rename-shell)
 (define-key shell-mode-map (kbd "M-s-r") #'ej/bash-history)
 (define-key shell-mode-map (kbd "s-t") #'toggle-truncate-lines)
+(define-key shell-mode-map (kbd "M-<up>") #'(lambda () (interactive) (insert "cd ..") (comint-send-input)))
+(define-key shell-mode-map (kbd "C-s-p") #'(lambda () (interactive) (insert "cd ..") (comint-send-input)))
 
 ;;; shell: completion
 (define-key shell-mode-map (kbd "<tab>") #'comint-dynamic-complete-filename)

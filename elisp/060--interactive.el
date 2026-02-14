@@ -187,19 +187,26 @@
   (save-window-excursion
     (let ((starting-window (selected-window)))
       (other-window 1)
-      (cl-loop for window = (selected-window) then (other-window 1)
+      (cl-loop for window = (selected-window)
                until (or (null window) (eq window starting-window))
                for buffer = (window-buffer window)
-               when (s-matches? pattern (buffer-name buffer))
-               return buffer
+               for buffer-name = (buffer-name buffer)
+               when (s-matches? pattern buffer-name) return buffer
+               do (other-window 1)
                finally return nil))))
+
+(defun ej/get-path (buffer)
+  (let* ((abs-path (buffer-file-name playground-buffer))
+         (cur-dir (or (and (boundp 'default-directory) default-directory) ""))
+         (rel-path (when (file-in-directory-p abs-path cur-dir) (file-relative-name abs-path cur-dir)))
+         (path (or rel-path abs-path)))
+    path))
 
 (defun ej/insert-nearest-py ()
   (interactive)
-  (let* ((playground-buffer (ej/find-nearest-by-pattern ".*\\.py")))
-    (if (null playground-buffer)
-        (message "Nearest `py*` not found!")
-      (insert (format "python %s" playground-buffer)))))
+  (-let* ((playground-buffer (ej/find-nearest-by-pattern ".*\\.py"))
+          (py-path (ej/get-path playground-buffer)))
+    (insert (format "python %s" py-path))))
 
 
 (pretty-hydra-define ej/shell-helper (:foreign-keys warn :exit t :quit-key "q")
