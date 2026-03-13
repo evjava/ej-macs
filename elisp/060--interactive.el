@@ -230,6 +230,7 @@
     ("/" (insert "fd -e py -x rg -H ") "fd -e py -x rg -H")
     ("t" (ej/start-tramp) "tramp")
     ("v" (insert (format "shifted version -> %s" (caddr (s-split "=" (s-trim (shell-command-to-string "make -s v")))))) "shifted version -> ..")
+    ("T" (insert-send "xfce4-terminal --tab --working-directory=$PWD") "terminal")
     )
 
    "Git"
