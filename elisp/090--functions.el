@@ -1074,7 +1074,7 @@ same directory as the org-buffer and insert a link to this file."
          (pairs (-zip keys terms))
          (sexp
           (--map
-           `(,(format "%c" (car it)) (insert ,(format "`%s`" (cdr it))) ,(format "`%s`" (cdr it)))
+           `(,(format "%c" (car it)) (insert ,(format "`%s` " (cdr it))) ,(format "`%s`" (cdr it)))
            pairs))
          (hydra
           `(defhydra ej/hydra-insert-org-terms
