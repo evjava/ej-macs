@@ -39,7 +39,7 @@
 (defvar org-roam-dir nil "Org Roam directory")
 (defvar priv-conf-file nil "Private config path")
 (defvar nav-nav-dir nil "nav-nav path")
-(defvar autoimport-config-path "~/1/pyproject.toml" "path to autoimport")
+(defvar main-pyproject-toml-path "~/1/pyproject.toml" "path to pyproject.toml")
 (defvar iove-dir nil "iove path")
 (defvar nav-items-file nil "path to nav-nav-file")
 (defvar latex-headers-file nil "latex headers file for completions")

@@ -1,5 +1,7 @@
 (setq org-babel-python-command python-dir)
 (setq python-shell-interpreter python-dir)
+(setq ej/python-debug nil)
+;; (setq ej/python-debug t)
 
 (defun ej/hook-python-vars ()
   (setq indent-tabs-mode nil)
@@ -39,9 +41,8 @@
 
 (defun ej/get-ruff-command (fname)
   (let* ((ruff (ej/locate-ruff))
-         (cmd (format "%s check --output-format json %s" ruff fname))
+         (cmd (format "%s check --config=%s --output-format json %s" ruff main-pyproject-toml-path fname))
          )
-    (message "Ruff command: %s" cmd)
     cmd))
 
 (defun ej/postfix-f401 (ruff-json)
@@ -55,8 +56,15 @@
 (defun ej/get-ruff-json (fname)
   (let* ((cmd (ej/get-ruff-command fname))
          (ruff-out (shell-command-to-string cmd))
-         (ruff-json (json-parse-string ruff-out))
-         ) ruff-json))
+         (ruff-json (condition-case nil
+                        (json-parse-string ruff-out)
+                      (error
+                       (progn
+                         (message "FAILED TO PARSE: [%s] -> %s" cmd ruff-out)
+                         nil)))))
+    (when (and ej/python-debug (not (null ruff-json)))
+      (message "DEBUG [%s] -> %s" cmd ruff-out))
+    ruff-json))
 
 (defun ej/get-line (ruff-json-line)
   (let* ((pos-x (gethash "row" (gethash "location" ruff-json-line)))
@@ -218,15 +226,19 @@
                         (format "%s check --fix" ruff)
                         (format "%s format" ruff)
                         ;; https://lyz-code.github.io/autoimport/
-                        (format "autoimport --config-file %s" autoimport-config-path)
+                        (format "autoimport --config-file=%s" main-pyproject-toml-path)
                         ;; todo fix
                         (format "%s format" ruff)
-                        (format "%s check --select I --fix" ruff)
+                        (format "%s check --fix --config %s" ruff main-pyproject-toml-path)
                         ))
          (commands (--map (format "%s %s" it fpath) pre-commands)))
     (cl-loop
      for cmd in commands
-     do (shell-command-to-string cmd))
+     do
+     (let* ((cmd-out (shell-command-to-string cmd)))
+       (when ej/python-debug
+         (message "DEBUG [%s] -> [%s]" cmd cmd-out))
+       ))
     ))
 
 (defun ej/find-class-symbol ()
