@@ -6,8 +6,7 @@
  '(ansi-color-faces-vector
    [default default default italic underline success warning error])
  '(ansi-color-names-vector
-   ["black" "red3" "ForestGreen" "yellow3" "blue" "magenta3"
-    "DeepSkyBlue" "gray50"])
+   ["black" "red3" "ForestGreen" "yellow3" "blue" "magenta3" "DeepSkyBlue" "gray50"])
  '(async-shell-command-buffer 'new-buffer)
  '(auto-save-list-file-prefix "~/.emacs.d/.local/auto-save-list/.saves-")
  '(backup-directory-alist '((".*" . "~/.emacs.d/.local/autosave/")))
@@ -23,9 +22,7 @@
  '(comint-password-prompt-regexp
    "\\(^ *\\|\\( SMB\\|'s\\|Bad\\|CVS\\|Enter\\(?: \\(?:\\(?:sam\\|th\\)e\\)\\)?\\|Kerberos\\|LDAP\\|New\\|Old\\|Repeat\\|UNIX\\|\\[sudo]\\|enter\\(?: \\(?:\\(?:sam\\|th\\)e\\)\\)?\\|login\\|new\\|old\\) +\\)\\(?:\\(?:adgangskode\\|contrase\\(?:\\(?:ny\\|ñ\\)a\\)\\|geslo\\|h\\(?:\\(?:asł\\|esl\\)o\\)\\|iphasiwedi\\|jelszó\\|l\\(?:ozinka\\|ösenord\\)\\|m\\(?:ot de passe\\|ật khẩu\\)\\|pa\\(?:rola\\|s\\(?:ahitza\\|s\\(?: phrase\\|code\\|ord\\|phrase\\|wor[dt]\\)\\|vorto\\)\\)\\|s\\(?:alasana\\|enha\\|laptažodis\\)\\|wachtwoord\\|лозинка\\|PASSWORD\\|.*Password.*\\|пароль\\|ססמה\\|كلمة السر\\|गुप्तशब्द\\|शब्दकूट\\|গুপ্তশব্দ\\|পাসওয়ার্ড\\|ਪਾਸਵਰਡ\\|પાસવર્ડ\\|ପ୍ରବେଶ ସଙ୍କେତ\\|கடவுச்சொல்\\|సంకేతపదము\\|ಗುಪ್ತಪದ\\|അടയാളവാക്ക്\\|රහස්පදය\\|ពាក្យសម្ងាត់\\|パスワード\\|密[码碼]\\|암호\\)\\|Response\\)\\(?:\\(?:, try\\)? *again\\|(empty for no passphrase)\\| (again)\\)?\\(?: for [^:：៖]+\\)?[:：៖]\\s *\\'")
  '(custom-safe-themes
-   '("23c0dc923626f1186edf9ed406dad5358477434d635ea90012e93863531a97b3"
-     "3f5f69bfa958dcf04066ab2661eb2698252c0e40b8e61104e3162e341cee1eb9"
-     default))
+   '("23c0dc923626f1186edf9ed406dad5358477434d635ea90012e93863531a97b3" "3f5f69bfa958dcf04066ab2661eb2698252c0e40b8e61104e3162e341cee1eb9" default))
  '(cv-basic-offset t)
  '(debug-on-error t)
  '(default-tab-width 2)
@@ -45,14 +42,17 @@
  '(horizontal-scroll-bar-mode nil)
  '(ignored-local-variable-values
    '((eval and buffer-file-name
-           (not (eq major-mode 'package-recipe-mode))
-           (or (require 'package-recipe-mode nil t)
-               (let ((load-path (cons "../package-build" load-path)))
-                 (require 'package-recipe-mode nil t)))
+           (not
+            (eq major-mode 'package-recipe-mode))
+           (or
+            (require 'package-recipe-mode nil t)
+            (let
+                ((load-path
+                  (cons "../package-build" load-path)))
+              (require 'package-recipe-mode nil t)))
            (package-recipe-mode))
      (eval add-to-list 'imenu-generic-expression
-           '("Sallet sources"
-             "\\(^(sallet-defsource +\\)\\(\\_<.+?\\_>\\)" 2))
+           '("Sallet sources" "\\(^(sallet-defsource +\\)\\(\\_<.+?\\_>\\)" 2))
      (vc-prepare-patches-separately)
      (diff-add-log-use-relative-names . t)
      (vc-git-annotate-switches . "-w")))
@@ -79,56 +79,14 @@
  '(org-tags-column 40)
  '(package-check-signature nil)
  '(package-selected-packages
-   '(0blayout ace-jump ace-jump-mode ag aidermacs all-the-icons
-              all-the-icons-dired ansible ansible-doc auctex
-              auctex-latexmk avy buttercup cdlatex chess cliphist
-              clojure-mode color-theme color-theme-buffer-local
-              company company-emojify company-mode company-posframe
-              consult dash dashboard devdocs diff-hl difflib
-              dired-atool dired-du dired-subtree dirvish djvu docker
-              dockerfile-mode doom-modeline dot-mode dracula-theme
-              dumb-jump dumb-mode eat edraw-org eglot ein ekg elogcat
-              elpy elquery elsa emacsql emacsql-sqlite emms
-              emms-info-libtag emojify erefactor eros ess esup esxml
-              esxml-query exec-path-from-shell
-              exec-path-from-shell-initialize expand-region expreg
-              exsml fireplace flx flymake-ruff gnuplot
-              google-translate google-translate-default-ui gptel
-              gradle-mode graphviz-dot-mode groovy-mode haskell-mode
-              haskell-mode helm helm-ag helm-bibtex helm-dash
-              helm-descbinds helm-fish-completion helm-ls-git helm-org
-              helm-org-rifle helm-projectile helm-rg helm-switch-shell
-              helm-swoop helm-system-packages helm-themes helpful
-              hierarchy highlight-sexp hl-todo htmlize hydra hyperbole
-              ialign iove ivy-emoji jinja2-mode json-mode julia-mode
-              julia-shell jupyter keyfreq khoj kotlin-mode
-              language-detection leaf leuven-theme lispy loop lsp
-              lsp-mode magit major-mode-hydra markdown-mode maxima mcp
-              multiple-cursors nav-nav nix-mode nyan-mode org
-              org-contrib org-download org-fragtog org-mobile-sync
-              org-noter-pdftools org-pdftools org-pdfview
-              org-plus-contrib org-ql org-ref org-roam
-              org-transclusion org-velocity ov ox-bibtex ox-tiddly
-              pcmpl-args pdf-tools pdf-view php-mode plantuml-mode
-              poly-markdown polymode pretty-hydra preview-it
-              projectile-ripgrep proof-general protobuf-mode quelpa
-              quelpa-use-package quick-yes rainbow-delimiters
-              rainbow-identifiers reazon request reverse-im rg ripgrep
-              ruff-format rust-mode s sallet saveplace-pdf-view
-              scala-mode scroll-on-jump session shx simple-httpd slime
-              smartparens smex solidity-mode spinner straight
-              sublimity suggest svg-lib swift-mode telega telega-mnz
-              telega-stories tex timeout toc-org togetherly transient
-              trashed treepy treesit tron-legacy-theme tuareg
-              typescript-mode typopunct use-package uuidgen vertico
-              visual-fill-column visual-regexp visual-regexp-steroids
-              vline wgrep wgrep-helm which-key wiki-summary windresize
-              yafolding yaml-mode zenburn-theme zzz-to-char))
+   '(markdown-mermaid mermaid-mode 0blayout ace-jump ace-jump-mode ag aidermacs all-the-icons all-the-icons-dired ansible ansible-doc auctex auctex-latexmk avy buttercup cdlatex chess cliphist clojure-mode color-theme color-theme-buffer-local company company-emojify company-mode company-posframe consult dash dashboard devdocs diff-hl difflib dired-atool dired-du dired-subtree dirvish djvu docker dockerfile-mode doom-modeline dot-mode dracula-theme dumb-jump dumb-mode eat edraw-org eglot ein ekg elogcat elpy elquery elsa emacsql emacsql-sqlite emms emms-info-libtag emojify erefactor eros ess esup esxml esxml-query exec-path-from-shell exec-path-from-shell-initialize expand-region expreg exsml fireplace flx flymake-ruff gnuplot google-translate google-translate-default-ui gptel gradle-mode graphviz-dot-mode groovy-mode haskell-mode haskell-mode helm helm-ag helm-bibtex helm-dash helm-descbinds helm-fish-completion helm-ls-git helm-org helm-org-rifle helm-projectile helm-rg helm-switch-shell helm-swoop helm-system-packages helm-themes helpful hierarchy highlight-sexp hl-todo htmlize hydra hyperbole ialign iove ivy-emoji jinja2-mode json-mode julia-mode julia-shell jupyter keyfreq khoj kotlin-mode language-detection leaf leuven-theme lispy loop lsp lsp-mode magit major-mode-hydra markdown-mode maxima mcp multiple-cursors nav-nav nix-mode nyan-mode org org-contrib org-download org-fragtog org-mobile-sync org-noter-pdftools org-pdftools org-pdfview org-plus-contrib org-ql org-ref org-roam org-transclusion org-velocity ov ox-bibtex ox-tiddly pcmpl-args pdf-tools pdf-view php-mode plantuml-mode poly-markdown polymode pretty-hydra preview-it projectile-ripgrep proof-general protobuf-mode quelpa quelpa-use-package quick-yes rainbow-delimiters rainbow-identifiers reazon request reverse-im rg ripgrep ruff-format rust-mode s sallet saveplace-pdf-view scala-mode scroll-on-jump session shx simple-httpd slime smartparens smex solidity-mode spinner straight sublimity suggest svg-lib swift-mode telega telega-mnz telega-stories tex timeout toc-org togetherly transient trashed treepy treesit tron-legacy-theme tuareg typescript-mode typopunct use-package uuidgen vertico visual-fill-column visual-regexp visual-regexp-steroids vline wgrep wgrep-helm which-key wiki-summary windresize yafolding yaml-mode zenburn-theme zzz-to-char))
  '(safe-local-variable-values
    '((eval setq-local vc-directory-exclusion-list
-           (-concat '("_data" "_temp_store" "_store")
-                    vc-directory-exclusion-list))
-     (vc-git-annotate-switches . "-w") (encoding . cp1251)))
+           (-concat
+            '("_data" "_temp_store" "_store")
+            vc-directory-exclusion-list))
+     (vc-git-annotate-switches . "-w")
+     (encoding . cp1251)))
  '(scroll-bar-mode nil)
  '(scroll-step 1)
  '(select-enable-clipboard t)
@@ -137,19 +95,17 @@
  '(tab-width 2)
  '(tool-bar-mode nil)
  '(use-package-selected-packages
-   '(visual-regexp-steroids hierarchy dired-subtree org-plus-contrib
-                            org-pdfview yafolding ag projectile
-                            reverse-im dashboard auctex org-virtual
-                            zzz-to-char org-mobile-sync orgit org
-                            yaml-mode visual-regexp use-package
-                            pdf-tools multiple-cursors kotlin-mode
-                            emms async))
+   '(visual-regexp-steroids hierarchy dired-subtree org-plus-contrib org-pdfview yafolding ag projectile reverse-im dashboard auctex org-virtual zzz-to-char org-mobile-sync orgit org yaml-mode visual-regexp use-package pdf-tools multiple-cursors kotlin-mode emms async))
  '(version-control t)
  '(world-clock-list
-   '(("America/Los_Angeles" "Seattle") ("America/New_York" "Stamford")
-     ("Europe/Warsaw" "Krakow") ("Europe/Moscow" "Saint-Petersburg")
-     ("Europe/London" "London") ("Europe/Paris" "Paris")
-     ("Asia/Calcutta" "Bangalore") ("Asia/Tokyo" "Tokyo")))
+   '(("America/Los_Angeles" "Seattle")
+     ("America/New_York" "Stamford")
+     ("Europe/Warsaw" "Krakow")
+     ("Europe/Moscow" "Saint-Petersburg")
+     ("Europe/London" "London")
+     ("Europe/Paris" "Paris")
+     ("Asia/Calcutta" "Bangalore")
+     ("Asia/Tokyo" "Tokyo")))
  '(x-select-request-type '(UTF8_STRING COMPOUND_TEXT TEXT STRING)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.

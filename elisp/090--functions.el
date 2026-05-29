@@ -214,10 +214,14 @@ C-u 0 M-x enumerate-rectangle"
 (defun ej/dired-get-size ()
   " runs command $ du -sch SOME_FILE "
   (interactive)
-  (let ((files (dired-get-marked-files)))
+  (let* ((files (dired-get-marked-files))
+         (files-cnt (length files))
+         (message-fmt-pref (if (= 1 files-cnt) "Size of all file" (format "Size of %d files" files-cnt)))
+         (message-fmt (s-concat message-fmt-pref ": %s"))
+         )
     (with-temp-buffer
-      (apply 'call-process "/usr/bin/du" nil t nil "-sch" files)
-      (message "Size of all marked files: %s"
+      (apply 'call-process "/usr/bin/du" nil t nil "-sch" "-L" "--dereference-args" files)
+      (message message-fmt
                (progn 
                  (re-search-backward "\\(^[0-9.,]+[A-Za-z]+\\).*total$")
                  (match-string 1))))))
