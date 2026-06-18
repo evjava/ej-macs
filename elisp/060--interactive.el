@@ -285,16 +285,13 @@
 
 (defun ej/insert-src-and-tests-subdirs ()
   (interactive)
-  (let* ((dir (dired-current-directory))
-         (dir-name (file-name-nondirectory (directory-file-name dir)))
-         (module-name (s-replace "-" "_" dir-name))
-         (src-dir-maybe (format "src/%s" module-name))
-         (src-dir (if (file-exists-p src-dir-maybe) src-dir-maybe "src"))
-         )
-    (dired-insert-subdir src-dir)
-    (when (file-exists-p "tests")
-      (dired-insert-subdir "tests"))
-    ))
+  (when (file-directory-p "src")
+    (let ((src-dirs (directory-files "src" t "^[^.]")))
+      (dolist (subdir src-dirs)
+        (when (file-directory-p subdir)
+          (dired-insert-subdir subdir)))))
+  (when (file-directory-p "tests")
+    (dired-insert-subdir "tests")))
 
 ;; dired
 (defhydra ej/dired-interactive (:exit t :columns 1)

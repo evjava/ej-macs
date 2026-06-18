@@ -34,3 +34,5 @@ projects
 aider-helm-read-string-history.el
 straight
 image-dired
+ac-comphist.dat
+eln-cache
