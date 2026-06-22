@@ -81,12 +81,20 @@
  '(package-selected-packages
    '(shell-maker agent-shell circe tblui jedi better-jumper markdown-mermaid mermaid-mode 0blayout ace-jump ace-jump-mode ag aidermacs all-the-icons all-the-icons-dired ansible ansible-doc auctex auctex-latexmk avy buttercup cdlatex chess cliphist clojure-mode color-theme color-theme-buffer-local company company-emojify company-mode company-posframe consult dash dashboard devdocs diff-hl difflib dired-atool dired-du dired-subtree dirvish djvu docker dockerfile-mode doom-modeline dot-mode dracula-theme dumb-mode eat edraw-org eglot ein ekg elogcat elpy elquery elsa emacsql emacsql-sqlite emms emms-info-libtag emojify erefactor eros ess esup esxml esxml-query exec-path-from-shell exec-path-from-shell-initialize expand-region expreg exsml fireplace flx flymake-ruff gnuplot google-translate google-translate-default-ui gradle-mode graphviz-dot-mode groovy-mode haskell-mode haskell-mode helm helm-ag helm-bibtex helm-dash helm-descbinds helm-fish-completion helm-ls-git helm-org helm-org-rifle helm-projectile helm-rg helm-switch-shell helm-swoop helm-system-packages helm-themes helpful hierarchy highlight-sexp hl-todo htmlize hydra hyperbole ialign iove ivy-emoji jinja2-mode json-mode julia-mode julia-shell jupyter keyfreq khoj kotlin-mode language-detection leaf leuven-theme lispy loop lsp lsp-mode magit major-mode-hydra markdown-mode maxima mcp multiple-cursors nav-nav nix-mode nyan-mode org org-contrib org-download org-fragtog org-mobile-sync org-noter-pdftools org-pdftools org-pdfview org-plus-contrib org-ql org-ref org-roam org-transclusion org-velocity ov ox-bibtex ox-tiddly pcmpl-args pdf-tools pdf-view php-mode plantuml-mode poly-markdown polymode pretty-hydra preview-it projectile-ripgrep proof-general protobuf-mode quelpa quelpa-use-package quick-yes rainbow-delimiters rainbow-identifiers reazon request reverse-im rg ripgrep ruff-format rust-mode s sallet saveplace-pdf-view scala-mode scroll-on-jump session shx simple-httpd slime smartparens smex solidity-mode spinner straight sublimity suggest svg-lib swift-mode telega telega-mnz telega-stories tex timeout toc-org togetherly transient trashed treepy treesit tron-legacy-theme tuareg typescript-mode typopunct use-package uuidgen vertico visual-fill-column visual-regexp visual-regexp-steroids vline wgrep wgrep-helm which-key wiki-summary windresize yafolding yaml-mode zenburn-theme zzz-to-char))
  '(safe-local-variable-values
+<<<<<<< Updated upstream
    '((eval setq-local vc-directory-exclusion-list
            (-concat
             '("_data" "_temp_store" "_store")
             vc-directory-exclusion-list))
      (vc-git-annotate-switches . "-w")
      (encoding . cp1251)))
+=======
+   '((system-time-locale . "C")
+     (eval setq-local vc-directory-exclusion-list
+           (-concat '("_data" "_temp_store" "_store")
+                    vc-directory-exclusion-list))
+     (vc-git-annotate-switches . "-w") (encoding . cp1251)))
+>>>>>>> Stashed changes
  '(scroll-bar-mode nil)
  '(scroll-step 1)
  '(select-enable-clipboard t)

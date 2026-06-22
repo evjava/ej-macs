@@ -82,11 +82,6 @@
 (global-set-key (kbd "C-x s-i") 'indent-relative)
 (global-set-key (kbd "C-x s-w") 'ido-switch-buffer)
 
-;;;; ----- locations
-(global-set-key (kbd "M-s-s") (lambda () (interactive) (switch-to-buffer "*scratch*")))
-(global-set-key (kbd "s-`") (lambda () (interactive) (switch-to-buffer "*trash-buffer*")))
-(global-set-key (kbd "s-ё") (lambda () (interactive) (switch-to-buffer "*trash-buffer*")))
-
 ;; ej/..
 (global-set-key (kbd "C-`") 'ej/tab-to-previous-buffer)
 (global-set-key (kbd "C-c C-M-r") 'ej/restart-emacs)

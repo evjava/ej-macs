@@ -6,6 +6,7 @@
   (load-el "elisp/013--early-vars.el")
   (load-el "elisp/014--early-dired.el")
   (load-el "elisp/015--early-shell.el")
+  (load-el "elisp/016--early-scratch.el")
   (load-el "elisp/020--paths.el")
   (load-el "elisp/030--nav-nav.el")
   (load-el "elisp/040--helm-hydra.el")
