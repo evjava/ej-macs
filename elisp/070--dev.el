@@ -213,7 +213,6 @@
     (save-excursion
       (while (not found)
         (ignore-errors (comint-previous-prompt 1) t)
-        (message "pizda %s %s <<%s>>" (ej/is-top-level-command) (ej/current-command) (thing-at-point 'line))
         (when (ej/is-top-level-command)
           (setq found (ej/current-command))))
       found)))

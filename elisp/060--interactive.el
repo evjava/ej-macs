@@ -303,11 +303,13 @@
   ("l" ej/insert-src-and-tests-subdirs "dired-insert-subdir: tests, src")
   ("r" projectile-ripgrep "projectile-ripgrep")
   ("RET" ej/open-in-external-app-dired "open in external")
+  ("T" (shell-command-to-string "xfce4-terminal --tab --working-directory=$PWD") "terminal")
   )
 
 (defun ej/dired-hook ()
   (interactive)
   (local-set-key (kbd "r") 'ej/dired-interactive/body)
+  (local-set-key (kbd "s-j") 'ej/dired-interactive/body)
   )
 (add-hook 'dired-mode-hook 'ej/dired-hook)
 

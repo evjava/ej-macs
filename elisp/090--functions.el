@@ -642,13 +642,17 @@ same directory as the org-buffer and insert a link to this file."
 
 (defun ej/toggle-presentation-mode ()
   (interactive)
-  (let* ((p-mode  (not is-presentation-mode))
-         (m-line  (if p-mode nil default-mode-line-format))
-         (f-title (if p-mode "emacs" default-frame-title-format)))
-    (setq-default mode-line-format     m-line)
-    (setq         mode-line-format     m-line)
-    (setq         frame-title-format   f-title)
-    (setq         is-presentation-mode p-mode)))
+  (if is-presentation-mode
+      (progn
+        (setq-default mode-line-format default-mode-line-format)
+        (setq         mode-line-format default-mode-line-format)
+        (setq         frame-title-format default-frame-title-format)
+        (setq         is-presentation-mode nil))
+    (progn
+      (setq-default mode-line-format nil)
+      (setq         mode-line-format nil)
+      (setq         frame-title-format "emacs")
+      (setq         is-presentation-mode t))))
 
 (defun ej/toggle-pdf-org ()
   (interactive)
