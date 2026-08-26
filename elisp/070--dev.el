@@ -30,6 +30,7 @@
 (add-to-list 'auto-mode-alist '("\.groovy$" . groovy-mode))
 (add-to-list 'auto-mode-alist '("\.gant$" . groovy-mode))
 (add-to-list 'auto-mode-alist '("\.gradle$" . groovy-mode))
+(add-to-list 'auto-mode-alist '("\.tsx$" . typescript-mode))
 (add-to-list 'interpreter-mode-alist '("groovy" . groovy-mode))
 
 ;;; make Groovy mode electric by default.

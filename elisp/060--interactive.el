@@ -136,6 +136,16 @@
          )
     (call-interactively (eval hydra))))
 
+(defvar ej/saved-commands nil)
+(defun ej/saved-commands ()
+  (interactive)
+  (let* ((prev-output (ej/get-previous-cmd-output))
+         (commands ej/saved-commands)
+         (commands-cut (seq-subseq commands 0 (min (length commands) ej/max-commands)))
+         (hydra (ej/make-hydra-from-lines commands-cut))
+         )
+    (call-interactively (eval hydra))))
+
 (defun ej/convert-files-to-loop ()
   (interactive)
   (kill-line 0)
@@ -231,6 +241,7 @@
     ("t" (ej/start-tramp) "tramp")
     ("v" (insert (format "shifted version -> %s" (caddr (s-split "=" (s-trim (shell-command-to-string "make -s v")))))) "shifted version -> ..")
     ("T" (insert-send "xfce4-terminal --tab --working-directory=$PWD") "terminal")
+    ("@" (ej/saved-commands) "suggest saved commands")
     )
 
    "Git"
