@@ -11,15 +11,19 @@
  (reverse-im-activate "russian-computer"))
 
 (use-package desktop
-  :config
+  :init
   (desktop-save-mode 1)
-  (setq desktop-path (list emacs-local-dir))
-  (setq desktop-save t)
-  (setq desktop-save-mode t)
-  (setq desktop-load-locked-desktop t)
-  :hook
-  (after-init . desktop-read)
-  (after-init . desktop-save-mode)
+  :custom
+  (desktop-path (list emacs-local-dir))
+  (desktop-save t)
+  (desktop-restore-frames t)
+  (desktop-restore-reuses-frames t)
+  (desktop-restore-in-current-display t)
+  (desktop-restore-forces-onscreen t)
+  :config
+  (add-to-list 'desktop-modes-not-to-save 'dired-mode)
+  (add-to-list 'desktop-modes-not-to-save 'Buffer-menu-mode)
+  (add-to-list 'desktop-modes-not-to-save 'compilation-mode)
 )
 
 (use-package session

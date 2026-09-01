@@ -240,7 +240,7 @@
     ("/" (insert "fd -e py -x rg -H ") "fd -e py -x rg -H")
     ("t" (ej/start-tramp) "tramp")
     ("v" (insert (format "shifted version -> %s" (caddr (s-split "=" (s-trim (shell-command-to-string "make -s v")))))) "shifted version -> ..")
-    ("T" (insert-send "xfce4-terminal --tab --working-directory=$PWD") "terminal")
+    ("T" (insert-send "pgrep -x xfce4-terminal >/dev/null && xfce4-terminal --tab --working-directory=$PWD || xfce4-terminal --working-directory=$PWD &") "terminal")
     ("@" (ej/saved-commands) "suggest saved commands")
     )
 
