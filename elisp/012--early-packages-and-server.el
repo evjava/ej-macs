@@ -41,6 +41,7 @@
 (use-package cl-lib)
 (use-package s)
 (use-package quick-yes :load-path "non-elpa")
+(use-package wdiff-mode :load-path "non-elpa")
 (use-package multiple-cursors
   :defer t
   :bind

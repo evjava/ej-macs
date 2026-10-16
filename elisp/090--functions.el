@@ -286,22 +286,9 @@ C-u 0 M-x enumerate-rectangle"
       (g tmp-path3-diff))))
 (global-set-key (kbd "C-M-=") #'ej/diff-simple)
 
-(defun ej/patch-wdiff (regexp color)
-  (beginning-of-buffer)
-  (while (re-search-forward regexp nil t)
-    (let* ((start (match-beginning 0)))
-      (kill-region start (point))
-      (insert (propertize (current-kill 0) 'font-lock-face `(:foreground ,color))))))
-
-(defun ej/colorize-wdiff ()
-  (interactive)
-  (ej/patch-wdiff "\\[-\\(.\\|\n\\)*?-]" "red")
-  (ej/patch-wdiff "{\\+\\(.\\|\n\\)*?\\+}" "green"))
-
 (defun ej/wdiff ()
   (interactive)
-  (ej/diff-helper "wdiff" tmp-path3-wdiff)
-  (ej/colorize-wdiff))
+  (ej/diff-helper "wdiff" tmp-path3-wdiff))
 
 (require 'grep)
 (defun search-all-buffers (regexp prefix)

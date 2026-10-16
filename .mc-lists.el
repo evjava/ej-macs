@@ -38,6 +38,7 @@
         helm-show-kill-ring
         indent-for-tab-command
         kill-region
+        kill-visual-line
         kmacro-start-macro-or-insert-counter
         markdown-beginning-of-line
         markdown-end-of-line

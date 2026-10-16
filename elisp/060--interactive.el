@@ -14,8 +14,8 @@
 (defun ej/git-modified-files ()
   (let* ((fs1 (ej/output-lines "git diff --name-only --cached"))
          (fs2 (ej/output-lines "git diff --name-only"))
-         (res (-concat fs1 fs2))
-         ) res))
+         (res (-distinct (-concat fs1 fs2))))
+    res))
 
 (defun ej/git-untracked-files ()
   (ej/output-lines "git status -s | awk '/^\\?\\?/ {print $2}'"))
@@ -121,6 +121,24 @@
          (res paths)
          ) res))
 
+(defvar ej/patterns-to-parse-after
+  '("run this:")
+  "List of regexp patterns. The rest of a matching line is suggested as a command.")
+
+(defun ej/parse-after-patterns (prev-output)
+  "Extract commands that appear after any pattern in =ej/patterns-to-parse-after'."
+  (when prev-output
+    (let ((commands '()))
+      (dolist (line (split-string prev-output "\n"))
+        (dolist (pattern ej/patterns-to-parse-after)
+          (when (string-match pattern line)
+            (let ((cmd (s-trim (substring line (match-end 0)))))
+              (unless (string= cmd "")
+                (push cmd commands))))))
+      (nreverse commands))))
+
+;; (ej/parse-after-patterns "prefix run this: command-to-run")
+
 (defun ej/suggest-context-commands ()
   (interactive)
   (let* ((prev-output (ej/get-previous-cmd-output))
@@ -129,6 +147,7 @@
                     (ej/parse-push-commands prev-output)
                     (ej/parse-updating prev-output)
                     (ej/parse-paths prev-output)
+                    (ej/parse-after-patterns prev-output)
                     ))
          ;; (_ (message "collected commands: %S" commands))
          (commands-cut (seq-subseq commands 0 (min (length commands) ej/max-commands)))
@@ -299,7 +318,9 @@
   (when (file-directory-p "src")
     (let ((src-dirs (directory-files "src" t "^[^.]")))
       (dolist (subdir src-dirs)
-        (when (file-directory-p subdir)
+        (when (and
+               (file-directory-p subdir)
+               (not (string= (file-name-nondirectory subdir) "__pycache__")))
           (dired-insert-subdir subdir)))))
   (when (file-directory-p "tests")
     (dired-insert-subdir "tests")))
