@@ -29,7 +29,8 @@
 (add-to-list 'comint-output-filter-functions 'ansi-color-process-output)
 ;; (setq interprogram-paste-function 'x-selection-value)
 (defalias 'x-cut-buffer-or-selection-value 'x-selection-value)
-(defalias 'incf 'cl-incf)
+(unless (bound-and-true-p incf)
+  (defalias 'incf 'cl-incf))
 (setq x-select-enable-clipboard-manager nil)
 
 ;;;; ----- behavior

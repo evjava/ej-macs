@@ -32,6 +32,7 @@
         ej/shell-1-or-else
         end-of-buffer
         eros-eval-last-sexp
+        forward-sentence
         forward-sexp
         haskell-indentation-common-electric-command
         helm-M-x
